@@ -350,8 +350,8 @@ export class BubbleDirective implements OnInit, OnDestroy {
     } else if (this.reappearActive) {
       const e = now - this.reappearStartTs;
       // Inflate like mouth-blown bubble: gentle ease-in, mild overshoot, slow settle
-      if (e <= 420) {
-        const p = Math.min(1, e / 420);
+      if (e <= 300) {
+        const p = Math.min(1, e / 300);
         // easeInOutCubic for smooth inflate
         const easeInOutCubic = (x: number) =>
           x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
@@ -359,9 +359,9 @@ export class BubbleDirective implements OnInit, OnDestroy {
         const startScale = 0.15;
         const targetScale = 1.08;
         renderScale = startScale + (targetScale - startScale) * eased;
-        renderOpacity = Math.min(1, (e / 420) * 1.2);
-      } else if (e <= 700) {
-        const p = Math.min(1, (e - 420) / 280);
+        renderOpacity = Math.min(1, (e / 300) * 1.2);
+      } else if (e <= 500) {
+        const p = Math.min(1, (e - 300) / 280);
         // subtle settle from 1.08 -> 1.0
         const easeOut = 1 - Math.pow(1 - p, 3);
         renderScale = 1.08 + (1 - 1.08) * easeOut;

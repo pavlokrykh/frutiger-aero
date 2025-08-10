@@ -1,10 +1,11 @@
 import { Component, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { MenuComponent } from './shared/menu/menu.component';
+import { DebugToggleComponent } from './shared/debug-toggle/debug-toggle.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, MenuComponent],
+  imports: [RouterOutlet, MenuComponent, DebugToggleComponent],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss'],
 })
