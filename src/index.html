@@ -10,18 +10,30 @@
   <body>
     <svg width="0" height="0" style="position: absolute">
       <defs>
-        <filter id="goo">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
+        <filter id="goo" color-interpolation-filters="sRGB">
+          <!-- Build a thickened alpha mask to create the union/bridge -->
+          <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blurAlpha" />
           <feColorMatrix
-            in="blur"
+            in="blurAlpha"
             mode="matrix"
             values="1 0 0 0 0
                     0 1 0 0 0
                     0 0 1 0 0
                     0 0 0 18 -8"
-            result="goo"
+            result="gooAlpha"
           />
-          <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+          <!-- Keep only the new area outside the original shapes -->
+          <feComposite in="gooAlpha" in2="SourceAlpha" operator="out" result="bridgeAlpha" />
+
+          <!-- Use blurred colors to softly fill the bridge area -->
+          <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blurColor" />
+          <feComposite in="blurColor" in2="bridgeAlpha" operator="in" result="bridgeColor" />
+
+          <!-- Combine original graphics (unchanged transparency) with the colored bridge -->
+          <feMerge>
+            <feMergeNode in="SourceGraphic" />
+            <feMergeNode in="bridgeColor" />
+          </feMerge>
         </filter>
       </defs>
     </svg>

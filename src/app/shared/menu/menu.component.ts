@@ -10,7 +10,7 @@ import { BubbleDirective } from '../elements/bubble/bubble.directive';
 })
 export class MenuComponent {
   readonly isOpen = signal(false);
-  readonly sizes = [44, 56, 50];
+  readonly sizes = [55, 60, 65];
 
   toggleMenu() {
     this.isOpen.update((prev) => !prev);

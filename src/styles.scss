@@ -1,6 +1,18 @@
 /* You can add global styles to this file, and also import other style files */
 @use './assets/styles/bubble.scss';
 
+html, body, app-root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background-image: url('./assets/images/bg2.webp');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: cover;
+  background-attachment: fixed;
+}
+
 button {
   cursor: pointer;
-}
+} 
