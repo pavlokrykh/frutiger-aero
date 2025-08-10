@@ -1,0 +1,11 @@
+
+.app-wrapper {
+  min-height: 100vh;
+}
+
+.app-content {
+  // Keep content clear of the fixed menu (menu width: ~100px + gap)
+  padding: 16px 16px 16px 140px;
+}
+
+

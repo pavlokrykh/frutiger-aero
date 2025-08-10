@@ -1,0 +1,54 @@
+<div class="menu" [class.is-open]="isOpen()">
+  <button
+    bubble
+    type="button"
+    class="menu-toggle"
+    (click)="toggleMenu()"
+    [bubbleFloating]="false"
+  >
+    Menu
+  </button>
+
+  <div class="nav-menu" data-goo>
+    <button
+      bubble
+      [bubbleFloating]="true"
+      [bubbleExpanded]="isOpen()"
+      [bubbleIndex]="0"
+      [bubbleCount]="3"
+      type="button"
+      routerLink="/home"
+      routerLinkActive="active"
+      [style.--bubble-size.px]="sizes[0]"
+    >
+      Home
+    </button>
+    <button
+      bubble
+      [bubbleFloating]="true"
+      [bubbleExpanded]="isOpen()"
+      [bubbleIndex]="1"
+      [bubbleCount]="3"
+      type="button"
+      routerLink="/about"
+      routerLinkActive="active"
+      [style.--bubble-size.px]="sizes[1]"
+    >
+      About
+    </button>
+    <button
+      bubble
+      [bubbleFloating]="true"
+      [bubbleExpanded]="isOpen()"
+      [bubbleIndex]="2"
+      [bubbleCount]="3"
+      type="button"
+      routerLink="/contact"
+      routerLinkActive="active"
+      class="contact-button"
+      [style.--bubble-size.px]="sizes[2]"
+    >
+      Contact
+    </button>
+  </div>
+</div>

@@ -19,14 +19,20 @@
       "rules": {
         "@angular-eslint/component-class-suffix": [
           "error",
-          {
-            "suffixes": ["Component"]
-          }
+          { "suffixes": ["Component"] }
         ],
         "@angular-eslint/directive-class-suffix": [
           "error",
+          { "suffixes": ["Directive"] }
+        ],
+        "max-len": [
+          "error",
           {
-            "suffixes": ["Directive"]
+            "code": 140,
+            "ignoreUrls": true,
+            "ignoreStrings": true,
+            "ignoreTemplateLiterals": true,
+            "ignoreComments": true
           }
         ]
       }
@@ -37,7 +43,16 @@
         "plugin:@angular-eslint/template/recommended",
         "plugin:prettier/recommended"
       ],
-      "rules": {}
+      "rules": {
+        "max-len": [
+          "error",
+          {
+            "code": 140,
+            "ignoreUrls": true,
+            "ignoreComments": true
+          }
+        ]
+      }
     }
   ]
 }
