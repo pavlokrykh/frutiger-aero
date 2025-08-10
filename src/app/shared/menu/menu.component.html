@@ -20,6 +20,10 @@
       routerLink="/home"
       routerLinkActive="active"
       [style.--bubble-size.px]="sizes[0]"
+      [bubbleGlassStrength]="85"
+      [bubbleGlassDepth]="18"
+      [bubbleChromaticAberration]="1.1"
+      [bubbleGlassBlur]="2.2"
     >
       Home
     </button>
@@ -33,6 +37,10 @@
       routerLink="/about"
       routerLinkActive="active"
       [style.--bubble-size.px]="sizes[1]"
+      [bubbleGlassStrength]="90"
+      [bubbleGlassDepth]="20"
+      [bubbleChromaticAberration]="1.2"
+      [bubbleGlassBlur]="2.4"
     >
       About
     </button>
@@ -47,6 +55,10 @@
       routerLinkActive="active"
       class="contact-button"
       [style.--bubble-size.px]="sizes[2]"
+      [bubbleGlassStrength]="95"
+      [bubbleGlassDepth]="22"
+      [bubbleChromaticAberration]="1.3"
+      [bubbleGlassBlur]="2.6"
     >
       Contact
     </button>

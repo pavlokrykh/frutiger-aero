@@ -9,6 +9,7 @@ import {
   OnDestroy,
   OnInit,
 } from '@angular/core';
+import { buildBackdropFilter } from './liquid-glass';
 
 @Directive({
   selector: '[bubble]',
@@ -22,6 +23,13 @@ export class BubbleDirective implements OnInit, OnDestroy {
   private expanded = false;
   private index = 0;
   private count = 1;
+
+  // Liquid glass tuning (can be overridden via inputs)
+  @Input() bubbleGlassStrength: number | undefined;
+  @Input() bubbleChromaticAberration: number | undefined;
+  @Input() bubbleGlassBlur: number | undefined;
+  @Input() bubbleGlassDepth: number | undefined;
+  @Input() bubbleGlassRadius: number | undefined;
 
   // Base target position when expanded (randomized per bubble)
   private baseX = 0;
@@ -75,6 +83,7 @@ export class BubbleDirective implements OnInit, OnDestroy {
   private containerW = 240;
   private containerH = 220;
   private containerLeft = 0;
+  private resizeObserver: ResizeObserver | null = null;
 
   ngOnInit(): void {
     // Ensure GPU-friendly transform updates
@@ -82,6 +91,15 @@ export class BubbleDirective implements OnInit, OnDestroy {
     el.style.willChange = 'transform';
     el.style.transform = 'translate3d(0,0,0)';
     el.style.pointerEvents = 'none';
+
+    // Init backdrop-filter (liquid glass) and keep it in sync with size
+    this.updateLiquidGlass();
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.updateLiquidGlass();
+      });
+      this.resizeObserver.observe(el);
+    }
 
     // Cache container and its size
     this.containerEl =
@@ -105,6 +123,10 @@ export class BubbleDirective implements OnInit, OnDestroy {
     if (this.rafId !== null) {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
+    }
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
     }
   }
 
@@ -415,6 +437,62 @@ export class BubbleDirective implements OnInit, OnDestroy {
     if (this.popActive || this.reappearActive) {
       el.style.pointerEvents = 'none';
     }
+  }
+
+  private updateLiquidGlass() {
+    const el = this.el.nativeElement;
+    const rect = el.getBoundingClientRect();
+    const width = Math.max(1, Math.round(rect.width || el.offsetWidth || 48));
+    const height = Math.max(
+      1,
+      Math.round(rect.height || el.offsetHeight || 48),
+    );
+    // Enlarge radius for refraction so bending starts further from edge
+    const visualRadius = Math.round(
+      this.bubbleGlassRadius ?? this.computeRadiusPx(el, width, height),
+    );
+    const depth = Math.round(
+      this.bubbleGlassDepth ?? this.computeDepthPx(Math.min(width, height)),
+    );
+    const strength = this.bubbleGlassStrength ?? 520;
+    const chromaticAberration = this.bubbleChromaticAberration ?? 1.2;
+    const blur = this.bubbleGlassBlur ?? 4.0;
+
+    const filter = buildBackdropFilter({
+      width,
+      height,
+      // Push refraction influence to ~50% of bubble size
+      radius: Math.min(
+        Math.max(visualRadius, Math.floor(Math.min(width, height) * 0.5)),
+        Math.floor(Math.min(width, height) / 2),
+      ),
+      depth: Math.max(depth, Math.floor(Math.min(width, height) * 0.55)),
+      strength: Math.min(1100, Math.max(strength, 480)),
+      chromaticAberration: Math.max(0.4, chromaticAberration),
+      blur: Math.max(3.0, blur),
+    });
+
+    el.style.setProperty('backdrop-filter', filter);
+    el.style.setProperty('-webkit-backdrop-filter', filter);
+  }
+
+  private computeRadiusPx(
+    el: HTMLElement,
+    width: number,
+    height: number,
+  ): number {
+    const cs = getComputedStyle(el);
+    // Try top-left radius first. If not a number, fallback to circle guess
+    const raw = cs.borderTopLeftRadius || cs.borderRadius;
+    const parsed = parseFloat(raw || '0');
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    return Math.min(width, height) * 0.5; // circle-like
+  }
+
+  private computeDepthPx(size: number): number {
+    // Depth scales with size. Increase range so refraction acts deeper into the bubble.
+    const d = size * 0.44; // ~44% of the smaller dimension
+    return Math.max(10, Math.min(80, Math.round(d)));
   }
 
   private triggerPop() {

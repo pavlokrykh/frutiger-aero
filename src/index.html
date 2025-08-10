@@ -11,27 +11,25 @@
     <svg width="0" height="0" style="position: absolute">
       <defs>
         <filter id="goo" color-interpolation-filters="sRGB">
+          <!-- Build a strong, size-independent mask that bridges nearby shapes -->
           <feMorphology
             in="SourceAlpha"
             operator="dilate"
-            radius="2"
+            radius="3"
             result="thickAlpha"
           />
-          <feGaussianBlur
-            in="thickAlpha"
-            stdDeviation="16"
-            result="blurAlpha"
-          />
+          <feGaussianBlur in="thickAlpha" stdDeviation="8" result="blurAlpha" />
           <feColorMatrix
             in="blurAlpha"
             mode="matrix"
             values="1 0 0 0 0
                     0 1 0 0 0
                     0 0 1 0 0
-                    0 0 0 28 -14"
+                    0 0 0 18 -8"
             result="gooAlpha"
           />
 
+          <!-- Keep only the newly created bridges (excluding the original solid shapes) -->
           <feComposite
             in="gooAlpha"
             in2="SourceAlpha"
@@ -39,25 +37,32 @@
             result="bridgeAlpha"
           />
 
-          <feGaussianBlur
-            in="SourceGraphic"
-            stdDeviation="10"
-            result="blurColor"
+          <!-- Colorize bridges with a dedicated cyan, then blend for a glossy thread -->
+          <feFlood
+            flood-color="rgb(170,240,255)"
+            flood-opacity="0.6"
+            result="bridgeColorInk"
           />
           <feComposite
-            in="blurColor"
+            in="bridgeColorInk"
             in2="bridgeAlpha"
             operator="in"
             result="bridgeColor"
           />
-          <feComponentTransfer in="bridgeColor" result="bridgeDim">
-            <feFuncA type="table" tableValues="0 0.7" />
-          </feComponentTransfer>
+          <feGaussianBlur
+            in="bridgeColor"
+            stdDeviation="5"
+            result="bridgeSoft"
+          />
 
-          <feMerge>
-            <feMergeNode in="SourceGraphic" />
-            <feMergeNode in="bridgeDim" />
-          </feMerge>
+          <!-- Blend with screen so it brightens without overpowering interior details -->
+          <feBlend
+            in="SourceGraphic"
+            in2="bridgeSoft"
+            mode="screen"
+            result="gooOut"
+          />
+          <feBlend in="gooOut" in2="bridgeSoft" mode="overlay" />
         </filter>
       </defs>
     </svg>

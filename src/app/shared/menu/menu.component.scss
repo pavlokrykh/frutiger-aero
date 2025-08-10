@@ -19,8 +19,8 @@
   height: 420px;
   margin-top: 12px;
 
-  // Enable goo filter for surface tension merge
-  filter: url('#goo') drop-shadow(0 8px 16px rgba(0, 0, 0, 0.18));
+  // Apply goo to the group so sibling bubbles merge; keep shadow subtle
+  // filter: url('#goo') drop-shadow(0 10px 16px rgba(0, 0, 0, 0.01));
   isolation: isolate; // avoid blending with background
   // Allow fly-out to extend beyond the container
   contain: layout; // remove paint containment so overflow is visible
