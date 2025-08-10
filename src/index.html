@@ -11,28 +11,34 @@
     <svg width="0" height="0" style="position: absolute">
       <defs>
         <filter id="goo" color-interpolation-filters="sRGB">
-          <!-- Build a thickened alpha mask to create the union/bridge -->
-          <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blurAlpha" />
+          <!-- Strengthen alpha and threshold for better merging on semi-transparent bubbles -->
+          <feMorphology in="SourceAlpha" operator="dilate" radius="2" result="thickAlpha" />
+          <feGaussianBlur in="thickAlpha" stdDeviation="16" result="blurAlpha" />
           <feColorMatrix
             in="blurAlpha"
             mode="matrix"
             values="1 0 0 0 0
                     0 1 0 0 0
                     0 0 1 0 0
-                    0 0 0 18 -8"
+                    0 0 0 28 -14"
             result="gooAlpha"
           />
+
           <!-- Keep only the new area outside the original shapes -->
           <feComposite in="gooAlpha" in2="SourceAlpha" operator="out" result="bridgeAlpha" />
 
           <!-- Use blurred colors to softly fill the bridge area -->
-          <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blurColor" />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blurColor" />
           <feComposite in="blurColor" in2="bridgeAlpha" operator="in" result="bridgeColor" />
+          <!-- Dim the bridge to avoid bright connectors -->
+          <feComponentTransfer in="bridgeColor" result="bridgeDim">
+            <feFuncA type="table" tableValues="0 0.7" />
+          </feComponentTransfer>
 
           <!-- Combine original graphics (unchanged transparency) with the colored bridge -->
           <feMerge>
             <feMergeNode in="SourceGraphic" />
-            <feMergeNode in="bridgeColor" />
+            <feMergeNode in="bridgeDim" />
           </feMerge>
         </filter>
       </defs>

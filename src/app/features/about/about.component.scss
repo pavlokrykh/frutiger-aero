@@ -9,6 +9,7 @@
   position: relative;
   margin: 12px 0 20px;
   filter: url('#goo') drop-shadow(0 8px 16px rgba(0, 0, 0, 0.18));
+  isolation: isolate;
   contain: layout;
   overflow: visible;
 

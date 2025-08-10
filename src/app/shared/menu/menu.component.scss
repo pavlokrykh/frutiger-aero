@@ -21,6 +21,7 @@
 
   // Enable goo filter for surface tension merge
   filter: url('#goo') drop-shadow(0 8px 16px rgba(0, 0, 0, 0.18));
+  isolation: isolate; // avoid blending with background
   // Allow fly-out to extend beyond the container
   contain: layout; // remove paint containment so overflow is visible
   overflow: visible;

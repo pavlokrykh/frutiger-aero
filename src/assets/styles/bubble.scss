@@ -3,11 +3,20 @@
   position: relative;
   border: none;
   border-radius: 999px;
-  background: radial-gradient(120% 120% at 30% 30%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.6) 25%, rgba(220, 245, 255, 0.55) 52%, rgba(180, 225, 255, 0.5) 65%, rgba(140, 210, 255, 0.45) 80%, rgba(80, 160, 255, 0.35) 100%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, rgba(180, 220, 255, 0.2) 100%);
-  color: #05365a;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6), inset 0 -6px 12px rgba(0, 60, 120, 0.25), 0 8px 20px rgba(0, 40, 80, 0.2);
+  /* Maximalist, rich aqua look with balanced opacity (better for goo) */
+  background:
+    radial-gradient(120% 120% at 32% 28%, rgba(255, 255, 255, 0.28) 0%, rgba(240, 250, 255, 0.18) 22%, rgba(210, 240, 255, 0.18) 40%, rgba(150, 215, 255, 0.18) 60%, rgba(90, 190, 255, 0.18) 80%, rgba(40, 150, 240, 0.16) 100%),
+    conic-gradient(from 210deg at 40% 45%, rgba(190, 240, 255, 0.12), rgba(120, 200, 255, 0.07), rgba(190, 240, 255, 0.12)),
+    linear-gradient(180deg, rgba(200, 235, 255, 0.38) 0%, rgba(120, 200, 255, 0.14) 100%),
+    radial-gradient(80% 80% at 70% 80%, rgba(0, 70, 140, 0.1), rgba(0, 70, 140, 0) 65%);
+  /* Stronger base alpha to improve goo merging and visibility */
+  background-color: rgba(70, 165, 245, 0.3);
+  color: #063a59;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.26);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+    inset 0 -6px 12px rgba(10, 70, 140, 0.22),
+    0 8px 18px rgba(0, 40, 80, 0.18);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -17,38 +26,38 @@
   aspect-ratio: 1 / 1;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: filter 220ms ease, box-shadow 220ms ease, background-position 220ms ease;
+  transition: filter 220ms ease, box-shadow 220ms ease, background-position 220ms ease, opacity 200ms ease;
 }
 
 .bubble::before {
   content: '';
   position: absolute;
-  top: 8%;
-  left: 16%;
-  width: 42%;
-  height: 32%;
-  background: radial-gradient(60% 60% at 50% 50%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 66%);
+  top: 10%;
+  left: 18%;
+  width: 36%;
+  height: 26%;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 66%);
   border-radius: 50%;
   pointer-events: none;
-  filter: blur(0.5px);
+  filter: blur(0.8px);
 }
 
 .bubble::after {
   content: '';
   position: absolute;
-  bottom: 8%;
-  right: 18%;
-  width: 24%;
-  height: 18%;
-  background: radial-gradient(60% 60% at 50% 50%, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 66%);
+  bottom: 10%;
+  right: 20%;
+  width: 20%;
+  height: 16%;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 66%);
   border-radius: 50%;
   pointer-events: none;
-  filter: blur(0.5px);
+  filter: blur(0.8px);
 }
 
 .bubble:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(50, 150, 255, 0.8), 0 8px 20px rgba(0, 40, 80, 0.2);
+  box-shadow: 0 0 0 2px rgba(50, 150, 255, 0.7), 0 8px 18px rgba(0, 40, 80, 0.18);
 }
 
 // Improve rendering
@@ -56,4 +65,12 @@
   backface-visibility: hidden;
   transform: translateZ(0);
   cursor: pointer;
+}
+
+/* Slight hover polish without adding glare */
+.bubble:hover {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.58),
+    inset 0 -8px 14px rgba(10, 70, 140, 0.24),
+    0 12px 22px rgba(0, 40, 80, 0.2);
 }
