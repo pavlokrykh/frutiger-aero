@@ -29,8 +29,9 @@ export function getDisplacementMap({
   radius,
   depth,
 }: Omit<DisplacementOptions, 'chromaticAberration' | 'strength'>): string {
-  // Build a map with strong non-linear ramps near edges to exaggerate refraction there
-  const edgeRamp = Math.max(2, Math.floor(depth * 2.2));
+  // Build a map with strong non-linear ramps near edges and extended falloff
+  // Increase ramp size so bending persists further from the border
+  const edgeRamp = Math.max(2, Math.floor(depth * 2.9));
   const innerX = edgeRamp;
   const innerY = edgeRamp;
   const innerW = Math.max(1, width - edgeRamp * 2);
@@ -40,14 +41,14 @@ export function getDisplacementMap({
         .mix { mix-blend-mode: screen; }
     </style>
     <defs>
-        <radialGradient id="edgeRampY" cx="50%" cy="50%" r="95%">
+        <radialGradient id="edgeRampY" cx="50%" cy="50%" r="98%">
           <stop offset="0%" stop-color="#000" />
-          <stop offset="45%" stop-color="#000" />
+          <stop offset="38%" stop-color="#000" />
           <stop offset="100%" stop-color="#0F0" />
         </radialGradient>
-        <radialGradient id="edgeRampX" cx="50%" cy="50%" r="95%">
+        <radialGradient id="edgeRampX" cx="50%" cy="50%" r="98%">
           <stop offset="0%" stop-color="#000" />
-          <stop offset="45%" stop-color="#000" />
+          <stop offset="38%" stop-color="#000" />
           <stop offset="100%" stop-color="#F00" />
         </radialGradient>
     </defs>
@@ -57,9 +58,9 @@ export function getDisplacementMap({
       <!-- Strong edge ramps; interior kept neutral gray for minimal distortion -->
       <rect x="0" y="0" height="${height}" width="${width}" fill="url(#edgeRampY)" class="mix" />
       <rect x="0" y="0" height="${height}" width="${width}" fill="url(#edgeRampX)" class="mix" />
-      <!-- Reduce interior neutralization so refraction acts deeper into the bubble -->
+      <!-- Keep interior near neutral so the map drives refraction, but allow longer falloff -->
       <rect x="${innerX}" y="${innerY}" width="${innerW}" height="${innerH}" rx="${radius}" ry="${radius}" fill="#808080" fill-opacity="0" />
-      <rect x="0" y="0" height="${height}" width="${width}" fill="#808080" fill-opacity="0" filter="blur(${Math.max(1, depth - 2)}px)" />
+      <rect x="0" y="0" height="${height}" width="${width}" fill="#808080" fill-opacity="0" filter="blur(${Math.max(1, depth)}px)" />
     </g>
   </svg>`;
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
@@ -150,8 +151,10 @@ export function buildBackdropFilter({
   radius,
   depth,
   strength = 200,
-  chromaticAberration = 0.8,
-  blur = 3.0,
+  // Slightly higher default CA for a refined iridescent edge
+  chromaticAberration = 1.4,
+  // Reintroduce a touch more blur (still far less than original)
+  blur = 1.8,
 }: DisplacementOptions & { blur?: number }): string {
   const url = getDisplacementFilter({
     height,
@@ -161,8 +164,9 @@ export function buildBackdropFilter({
     strength,
     chromaticAberration,
   });
-  // Order matters: a touch of pre-blur -> displacement -> fine blur
+  // Order matters: small pre-blur -> displacement -> small post-blur
+  // Keeps clarity while adding a gentle softening of refracted edges
   return `blur(${(blur * 0.7).toFixed(2)}px) url('${url}') blur(${(
-    blur * 1.0
-  ).toFixed(2)}px) contrast(1.05) brightness(1.02) saturate(1.0)`;
+    blur * 0.9
+  ).toFixed(2)}px) contrast(1.04) brightness(1.02) saturate(1.02)`;
 }

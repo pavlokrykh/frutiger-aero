@@ -165,7 +165,7 @@ export class BubbleDirective implements OnInit, OnDestroy {
     // Compute a near-vertical line below the toggle
     const jitterX = (Math.random() - 0.5) * 12; // slight horizontal chaos
     const jitterY = (Math.random() - 0.5) * 10; // slight vertical chaos
-    const spacing = 56 + Math.random() * 8; // vertical spacing
+    const spacing = 78 + Math.random() * 12; // larger vertical spacing
     // Read toggle size and anchor bubbles below it
     const hostRect = this.containerEl?.getBoundingClientRect();
     const toggleEl = this.containerEl
@@ -175,7 +175,7 @@ export class BubbleDirective implements OnInit, OnDestroy {
       toggleRect && hostRect ? toggleRect.left - hostRect.left : 0;
     const baseTop = toggleRect && hostRect ? toggleRect.top - hostRect.top : 0;
     const anchorX = baseLeft + (toggleRect?.width ?? 48) * 0.5;
-    const anchorY = baseTop + (toggleRect?.height ?? 48) + 18; // small gap
+    const anchorY = baseTop + (toggleRect?.height ?? 48) + 26; // larger gap below toggle
     const startX = Math.min(this.containerW - 40, Math.max(40, anchorX));
     const startY = Math.min(this.containerH - 40, Math.max(40, anchorY));
 
@@ -455,8 +455,10 @@ export class BubbleDirective implements OnInit, OnDestroy {
       this.bubbleGlassDepth ?? this.computeDepthPx(Math.min(width, height)),
     );
     const strength = this.bubbleGlassStrength ?? 520;
-    const chromaticAberration = this.bubbleChromaticAberration ?? 1.2;
-    const blur = this.bubbleGlassBlur ?? 4.0;
+    // Slightly stronger default CA to introduce a gentle colored rim
+    const chromaticAberration = this.bubbleChromaticAberration ?? 1.6;
+    // Small but noticeable blur for a soft refraction
+    const blur = this.bubbleGlassBlur ?? 1.6;
 
     const filter = buildBackdropFilter({
       width,
@@ -466,10 +468,13 @@ export class BubbleDirective implements OnInit, OnDestroy {
         Math.max(visualRadius, Math.floor(Math.min(width, height) * 0.5)),
         Math.floor(Math.min(width, height) / 2),
       ),
-      depth: Math.max(depth, Math.floor(Math.min(width, height) * 0.55)),
-      strength: Math.min(1100, Math.max(strength, 480)),
+      // Extend influence further into the bubble
+      depth: Math.max(depth, Math.floor(Math.min(width, height) * 0.7)),
+      // Increase minimum strength for harder bending
+      strength: Math.min(1200, Math.max(strength, 700)),
       chromaticAberration: Math.max(0.4, chromaticAberration),
-      blur: Math.max(3.0, blur),
+      // Keep a minimum so the softening is perceptible but subtle
+      blur: Math.max(1.0, blur),
     });
 
     el.style.setProperty('backdrop-filter', filter);
@@ -490,9 +495,9 @@ export class BubbleDirective implements OnInit, OnDestroy {
   }
 
   private computeDepthPx(size: number): number {
-    // Depth scales with size. Increase range so refraction acts deeper into the bubble.
-    const d = size * 0.44; // ~44% of the smaller dimension
-    return Math.max(10, Math.min(80, Math.round(d)));
+    // Depth scales with size. Push deeper so refraction bends longer into the interior.
+    const d = size * 0.62; // ~62% of the smaller dimension
+    return Math.max(10, Math.min(120, Math.round(d)));
   }
 
   private triggerPop() {

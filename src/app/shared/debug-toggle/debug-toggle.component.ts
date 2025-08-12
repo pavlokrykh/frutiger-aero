@@ -10,18 +10,26 @@ import { BubbleDirective } from '../elements/bubble/bubble.directive';
   styleUrl: './debug-toggle.component.scss',
 })
 export class DebugToggleComponent {
-  private readonly isAltBackground = signal(false);
+  private readonly currentBgIndex = signal(0);
+
+  private readonly backgrounds = [
+    './assets/images/bg.jpg',
+    './assets/images/bg2.webp',
+    './assets/images/bg3.jpg',
+    './assets/images/bg4.jpg',
+  ];
 
   private readonly documentRef = inject(DOCUMENT);
 
   toggleBackground(): void {
-    const next = !this.isAltBackground();
-    this.isAltBackground.set(next);
+    const nextIndex = (this.currentBgIndex() + 1) % this.backgrounds.length;
+    this.currentBgIndex.set(nextIndex);
+
     const body = this.documentRef.body;
-    if (next) {
-      body.classList.add('alt-bg');
-    } else {
-      body.classList.remove('alt-bg');
-    }
+    // Remove any existing background classes
+    body.classList.remove('alt-bg', 'bg-2', 'bg-3', 'bg-4');
+
+    // Set the new background
+    body.style.backgroundImage = `url('${this.backgrounds[nextIndex]}')`;
   }
 }

@@ -15,8 +15,8 @@
 
 .nav-menu {
   position: relative;
-  width: 220px;
-  height: 420px;
+  width: 320px;
+  height: 560px;
   margin-top: 12px;
 
   // Apply goo to the group so sibling bubbles merge; keep shadow subtle
@@ -47,7 +47,6 @@
   --bubble-size: 48px;
   width: var(--bubble-size);
   height: var(--bubble-size);
-  padding: 0;
   font-size: 13px;
   position: absolute;
   left: 0;

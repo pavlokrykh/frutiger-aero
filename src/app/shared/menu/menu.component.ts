@@ -10,7 +10,8 @@ import { BubbleDirective } from '../elements/bubble/bubble.directive';
 })
 export class MenuComponent {
   readonly isOpen = signal(false);
-  readonly sizes = [55, 60, 65];
+  // Larger nav bubbles
+  readonly sizes = [84, 96, 108];
 
   toggleMenu() {
     this.isOpen.update((prev) => !prev);
