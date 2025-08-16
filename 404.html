@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-beasties-container>
+  <head>
+    <meta charset="utf-8">
+    <title>FrutigerAero</title>
+    <base href="https://pavlokrykh.github.io/frutiger-aero/">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <style>html,body,app-root{height:100%}body{margin:0;background-image:url("./media/bg2-D74NY3SQ.webp");background-repeat:no-repeat;background-position:center center;background-size:cover;background-attachment:fixed}</style><link rel="stylesheet" href="styles-XYLHIL43.css" media="print" onload="this.media='all'"><noscript><link rel="stylesheet" href="styles-XYLHIL43.css"></noscript></head>
+  <body>
+    <svg width="0" height="0" style="position: absolute">
+      <defs>
+        <filter id="goo" color-interpolation-filters="sRGB">
+          <!-- Build a strong, size-independent mask that bridges nearby shapes -->
+          <feMorphology in="SourceAlpha" operator="dilate" radius="3" result="thickAlpha"/>
+          <feGaussianBlur in="thickAlpha" stdDeviation="8" result="blurAlpha"/>
+          <feColorMatrix in="blurAlpha" mode="matrix" values="1 0 0 0 0
+                    0 1 0 0 0
+                    0 0 1 0 0
+                    0 0 0 18 -8" result="gooAlpha"/>
+
+          <!-- Keep only the newly created bridges (excluding the original solid shapes) -->
+          <feComposite in="gooAlpha" in2="SourceAlpha" operator="out" result="bridgeAlpha"/>
+
+          <!-- Colorize bridges with a dedicated cyan, then blend for a glossy thread -->
+          <feFlood flood-color="rgb(170,240,255)" flood-opacity="0.6" result="bridgeColorInk"/>
+          <feComposite in="bridgeColorInk" in2="bridgeAlpha" operator="in" result="bridgeColor"/>
+          <feGaussianBlur in="bridgeColor" stdDeviation="5" result="bridgeSoft"/>
+
+          <!-- Blend with screen so it brightens without overpowering interior details -->
+          <feBlend in="SourceGraphic" in2="bridgeSoft" mode="screen" result="gooOut"/>
+          <feBlend in="gooOut" in2="bridgeSoft" mode="overlay"/>
+        </filter>
+      </defs>
+    </svg>
+    <app-root></app-root>
+  <script src="main-QAYMZDYH.js" type="module"></script></body>
+</html>
