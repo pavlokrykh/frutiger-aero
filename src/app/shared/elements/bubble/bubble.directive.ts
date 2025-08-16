@@ -10,6 +10,7 @@ import {
   OnInit,
 } from '@angular/core';
 import { buildBackdropFilter } from './liquid-glass';
+import { AudioService } from '../../services/audio.service';
 
 @Directive({
   selector: '[bubble]',
@@ -90,6 +91,7 @@ export class BubbleDirective implements OnInit, OnDestroy {
 
   private readonly el = inject(ElementRef) as ElementRef<HTMLElement>;
   private readonly zone = inject(NgZone);
+  private readonly audioService = inject(AudioService);
   private containerEl: HTMLElement | null = null;
   private containerW = 240;
   private containerH = 220;
@@ -273,6 +275,10 @@ export class BubbleDirective implements OnInit, OnDestroy {
   onClick() {
     // Trigger a full pop/explosion animation with delayed reappearance
     if (this.popActive || this.reappearActive) return;
+
+    // Play bubble pop sound
+    this.audioService.playBubblePop();
+
     this.triggerPop();
   }
 

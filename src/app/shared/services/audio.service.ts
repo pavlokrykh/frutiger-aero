@@ -13,6 +13,23 @@ export class AudioService {
   private targetVolume = 0.1; // 10% volume
   private hasFadedOut = false; // Track if we've already started fade out
 
+  // Bubble pop sound configuration
+  private readonly popSounds: readonly string[] = [
+    'assets/audio/bubbles/pop/bubble-pop-03-320977.mp3',
+    'assets/audio/bubbles/pop/bubble-pop-06-351337.mp3',
+    'assets/audio/bubbles/pop/bubble-pop-389501.mp3',
+    'assets/audio/bubbles/pop/bubblepop-01-255624.mp3',
+  ];
+  private readonly extraSounds: readonly string[] = [
+    'assets/audio/bubbles/extra/part-0.mp3',
+    'assets/audio/bubbles/extra/part-1.mp3',
+    'assets/audio/bubbles/extra/part-2.mp3',
+    'assets/audio/bubbles/extra/part-3.mp3',
+    'assets/audio/bubbles/extra/part-4.mp3',
+    'assets/audio/bubbles/extra/part-5.mp3',
+  ];
+  private readonly popVolume = 0.3; // 30% volume for pop sounds
+
   constructor() {
     this.initializeAudio();
   }
@@ -188,6 +205,55 @@ export class AudioService {
     this.targetVolume = newVolume;
     if (this.audio) {
       this.audio.volume = newVolume;
+    }
+  }
+
+  /**
+   * Play a random bubble pop sound
+   */
+  playBubblePop(): void {
+    const randomIndex = Math.floor(Math.random() * this.popSounds.length);
+    const soundPath = this.popSounds[randomIndex];
+    this.playSound(soundPath, this.popVolume);
+  }
+
+  /**
+   * Play a random extra sound (for nav bubbles sliding out)
+   */
+  playExtraSound(): void {
+    const randomIndex = Math.floor(Math.random() * this.extraSounds.length);
+    const soundPath = this.extraSounds[randomIndex];
+    this.playSound(soundPath, this.popVolume);
+  }
+
+  /**
+   * Play bubble pop sound with delay for menu extra sound effect
+   */
+  playMenuBubbleSequence(): void {
+    // First play the random pop sound immediately
+    this.playBubblePop();
+
+    // Then play the extra sound when nav bubbles slide out (shorter delay)
+    // Play sound right when bubbles start sliding out
+    setTimeout(() => {
+      this.playExtraSound();
+    }, 200); // Much shorter timing to play when bubbles start sliding
+  }
+
+  /**
+   * Play a sound effect at the specified volume
+   */
+  private playSound(soundPath: string, volume: number): void {
+    try {
+      const audio = new Audio(soundPath);
+      audio.volume = Math.max(0, Math.min(1, volume));
+      audio.preload = 'auto';
+
+      audio.play().catch((error) => {
+        console.warn('Could not play sound:', soundPath, error);
+      });
+    } catch (error) {
+      console.warn('Error creating audio for:', soundPath, error);
     }
   }
 }
