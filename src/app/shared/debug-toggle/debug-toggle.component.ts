@@ -10,7 +10,7 @@ import { BubbleDirective } from '../elements/bubble/bubble.directive';
   styleUrl: './debug-toggle.component.scss',
 })
 export class DebugToggleComponent {
-  private readonly currentBgIndex = signal(0);
+  private readonly currentBgIndex = signal(1); // Start at index 1 to match initial bg2.webp
 
   private readonly backgrounds = [
     './assets/images/bg.jpg',

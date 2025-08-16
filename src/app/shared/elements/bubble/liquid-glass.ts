@@ -19,6 +19,46 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+// Simple memoization cache to avoid regenerating identical SVG data URIs.
+const filterCache = new Map<string, string>();
+
+function makeKey(opts: DisplacementOptions) {
+  // Quantize sizes to reduce unique keys (snap to 8px grid) which drastically
+  // reduces churn from tiny layout differences on mobile.
+  const q = (n: number) => Math.round(n / 8) * 8;
+  return [
+    q(opts.width),
+    q(opts.height),
+    Math.round(opts.radius),
+    Math.round(opts.depth),
+    Math.round(opts.strength || 0),
+    Math.round((opts.chromaticAberration || 0) * 10),
+  ].join('x');
+}
+
+function isLowPowerOrMobile(): boolean {
+  try {
+    if (typeof navigator === 'undefined') return false;
+    const nav = navigator as unknown as {
+      userAgent?: string;
+      connection?: { saveData?: boolean; effectiveType?: string };
+      deviceMemory?: number;
+    };
+  // Conservative low-power detection: only enable fallback when explicit
+  // signals indicate constrained device/connection. Avoid treating all
+  // mobile user agents as low-power because modern phones (Snapdragon, etc.)
+  // can handle the effect.
+  const saveData = !!nav.connection?.saveData;
+  const effectiveType = nav.connection?.effectiveType || '';
+  const slowNet = /2g|slow-2g/.test(effectiveType);
+  const deviceMem = nav.deviceMemory || 0;
+  const veryLowMem = deviceMem > 0 ? deviceMem < 1.5 : false;
+  return saveData || slowNet || veryLowMem;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Create the displacement map used by feDisplacementMap.
  * Gradients take the radius into account so borders get symmetric distortions.
@@ -36,7 +76,15 @@ export function getDisplacementMap({
   const innerY = edgeRamp;
   const innerW = Math.max(1, width - edgeRamp * 2);
   const innerH = Math.max(1, height - edgeRamp * 2);
-  const svg = `<svg height="${height}" width="${width}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+  // If on a low-power / mobile device, generate a much smaller map so the
+  // feImage/feDisplacementMap work is cheaper; scale down radius/depth
+  // slightly to preserve a decent look.
+  const lowPower = isLowPowerOrMobile();
+  const outWidth = lowPower ? Math.max(48, Math.round(width / 2)) : width;
+  const outHeight = lowPower ? Math.max(48, Math.round(height / 2)) : height;
+  const outDepth = lowPower ? Math.max(6, Math.round(depth * 0.6)) : depth;
+
+  const svg = `<svg height="${outHeight}" width="${outWidth}" viewBox="0 0 ${outWidth} ${outHeight}" xmlns="http://www.w3.org/2000/svg">
     <style>
         .mix { mix-blend-mode: screen; }
     </style>
@@ -53,14 +101,14 @@ export function getDisplacementMap({
         </radialGradient>
     </defs>
 
-    <rect x="0" y="0" height="${height}" width="${width}" fill="#808080" />
+  <rect x="0" y="0" height="${outHeight}" width="${outWidth}" fill="#808080" />
     <g>
       <!-- Strong edge ramps; interior kept neutral gray for minimal distortion -->
       <rect x="0" y="0" height="${height}" width="${width}" fill="url(#edgeRampY)" class="mix" />
       <rect x="0" y="0" height="${height}" width="${width}" fill="url(#edgeRampX)" class="mix" />
       <!-- Keep interior near neutral so the map drives refraction, but allow longer falloff -->
-      <rect x="${innerX}" y="${innerY}" width="${innerW}" height="${innerH}" rx="${radius}" ry="${radius}" fill="#808080" fill-opacity="0" />
-      <rect x="0" y="0" height="${height}" width="${width}" fill="#808080" fill-opacity="0" filter="blur(${Math.max(1, depth)}px)" />
+    <rect x="${innerX}" y="${innerY}" width="${innerW}" height="${innerH}" rx="${radius}" ry="${radius}" fill="#808080" fill-opacity="0" />
+    <rect x="0" y="0" height="${outHeight}" width="${outWidth}" fill="#808080" fill-opacity="0" filter="blur(${Math.max(1, outDepth)}px)" />
     </g>
   </svg>`;
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
@@ -81,64 +129,53 @@ export function getDisplacementFilter({
   const safeStrength = clamp(strength, 0, 1200);
   const safeCA = clamp(chromaticAberration, 0, 120);
 
+  // Use quantized key and a memo cache to avoid expensive recomputation on
+  // small layout deltas.
+  const key = makeKey({
+    height,
+    width,
+    radius,
+    depth,
+    strength: safeStrength,
+    chromaticAberration: safeCA,
+  });
+  const cached = filterCache.get(key);
+  if (cached) return cached;
+
+  // If on low-power/mobile, prefer generating a much smaller SVG filter and
+  // reduce the displacement strength/CA to avoid heavy pixel work.
+  const lowPower = isLowPowerOrMobile();
   const map = getDisplacementMap({ height, width, radius, depth });
-  const svg = `<svg height="${height}" width="${width}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+  const outWidth = lowPower ? Math.max(48, Math.round(width / 2)) : width;
+  const outHeight = lowPower ? Math.max(48, Math.round(height / 2)) : height;
+
+  const svg = `<svg height="${outHeight}" width="${outWidth}" viewBox="0 0 ${outWidth} ${outHeight}" xmlns="http://www.w3.org/2000/svg">
     <defs>
-        <filter id="displace" color-interpolation-filters="sRGB">
-            <feImage x="0" y="0" height="${height}" width="${width}" href="${map}" result="displacementMap" />
-            <feDisplacementMap
-                in="SourceGraphic"
-                in2="displacementMap"
-                scale="${safeStrength + safeCA * 2}"
-                xChannelSelector="R"
-                yChannelSelector="G"
-            />
-            <feColorMatrix
-              type="matrix"
-              values="1 0 0 0 0
-                      0 0 0 0 0
-                      0 0 0 0 0
-                      0 0 0 1 0"
-              result="displacedR"
-            />
-            <feDisplacementMap
-                in="SourceGraphic"
-                in2="displacementMap"
-                scale="${safeStrength + safeCA}"
-                xChannelSelector="R"
-                yChannelSelector="G"
-            />
-            <feColorMatrix
-              type="matrix"
-              values="0 0 0 0 0
-                      0 1 0 0 0
-                      0 0 0 0 0
-                      0 0 0 1 0"
-              result="displacedG"
-            />
-            <feDisplacementMap
-                in="SourceGraphic"
-                in2="displacementMap"
-                scale="${safeStrength}"
-                xChannelSelector="R"
-                yChannelSelector="G"
-            />
-            <feColorMatrix
-              type="matrix"
-              values="0 0 0 0 0
-                      0 0 0 0 0
-                      0 0 1 0 0
-                      0 0 0 1 0"
-              result="displacedB"
-            />
-            <!-- Use lighten to avoid over-blue look while preserving refraction separation -->
-            <feBlend in="displacedR" in2="displacedG" mode="lighten" />
-            <feBlend in2="displacedB" mode="lighten" />
-        </filter>
+    <filter id="displace" color-interpolation-filters="sRGB">
+      <!-- Single displacement map pass for performance -->
+      <feImage x="0" y="0" height="${outHeight}" width="${outWidth}" href="${map}" result="dmap" preserveAspectRatio="xMidYMid slice" />
+      <feDisplacementMap in="SourceGraphic" in2="dmap" scale="${Math.round(safeStrength * (lowPower ? 0.6 : 1))}" xChannelSelector="R" yChannelSelector="G" />
+      <!-- Slight blur and contrast tweak to soften artifacts -->
+      <feGaussianBlur stdDeviation="${lowPower ? 0.6 : 0.9}" result="blurred" />
+            <feColorMatrix type="matrix" values="1.02 0 0 0 0  0 1.01 0 0 0  0 0 1 0 0  0 0 0 1 0" in="blurred" />
+    </filter>
     </defs>
   </svg>`;
+  const data = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '#displace';
 
-  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '#displace';
+  // Cache result for subsequent similar sizes.
+  try {
+    filterCache.set(key, data);
+    // Keep cache bounded
+    if (filterCache.size > 120) {
+      // simple FIFO-ish drop
+      const first = filterCache.keys().next().value;
+      if (typeof first === 'string') filterCache.delete(first);
+    }
+  } catch {
+    // ignore cache failures
+  }
+  return data;
 }
 
 /**
@@ -156,6 +193,13 @@ export function buildBackdropFilter({
   // Reintroduce a touch more blur (still far less than original)
   blur = 1.8,
 }: DisplacementOptions & { blur?: number }): string {
+  // On low-power/mobile devices return a much cheaper filter: small blur + slight contrast.
+  const lowPower = isLowPowerOrMobile();
+  if (lowPower) {
+    // keep a tiny blur and mild color adjustments, avoid the expensive url(...) displacement
+  return `blur(${Math.max(0.8, blur * 0.6).toFixed(2)}px) contrast(1.02) brightness(1.01) saturate(1.01)`;
+  }
+
   const url = getDisplacementFilter({
     height,
     width,

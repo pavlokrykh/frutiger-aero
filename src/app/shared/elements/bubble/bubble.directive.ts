@@ -57,7 +57,7 @@ export class BubbleDirective implements OnInit, OnDestroy {
   private morphPhase3 = Math.random() * Math.PI * 2;
   private morphPhase4 = Math.random() * Math.PI * 2;
   private morphBaseSpeed = 0.11 + Math.random() * 0.06; // cycles/sec (natural)
-  private morphBaseAmplitudePct = 6 + Math.random() * 5; // smoother, avoids squaring
+  private morphBaseAmplitudePct = 3 + Math.random() * 2; // much more subtle to avoid squareish look
   private morphAnisotropyBase = 0.016 + Math.random() * 0.012; // gentle jelly anisotropy
 
   // Interaction state
@@ -100,6 +100,13 @@ export class BubbleDirective implements OnInit, OnDestroy {
   // Cache last filter dimensions so we don't rebuild the expensive SVG URI
   private lastFilterWidth = 0;
   private lastFilterHeight = 0;
+  // Low-power mode flags and RAF throttling
+  private lowPowerMode = false;
+  private lastFrameTs = 0;
+  private minFrameIntervalMs = 16; // ms between frames (60fps)
+  // Track last written styles to avoid redundant DOM writes
+  private lastTransform = '';
+  private lastOpacity = '';
 
   ngOnInit(): void {
     // Ensure GPU-friendly transform updates
@@ -111,6 +118,23 @@ export class BubbleDirective implements OnInit, OnDestroy {
 
     // Init backdrop-filter (liquid glass) and keep it in sync with size
     this.updateLiquidGlass();
+    // lightweight low-power/mobile detection to reduce visual fidelity
+    try {
+      const nav = navigator as unknown as {
+        connection?: { saveData?: boolean; effectiveType?: string };
+        deviceMemory?: number;
+      };
+      const saveData = !!nav.connection?.saveData;
+      const slowNet = /2g|slow-2g/.test(nav.connection?.effectiveType || '');
+      const veryLowMem = (nav.deviceMemory || 0) > 0 ? nav.deviceMemory! < 1.5 : false;
+      if (saveData || slowNet || veryLowMem) {
+        this.lowPowerMode = true;
+        this.filterUpdateIntervalMs = 220;
+        this.minFrameIntervalMs = 40; // ~25fps
+      }
+    } catch {
+      // ignore
+    }
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => {
         this.updateLiquidGlass();
@@ -129,7 +153,12 @@ export class BubbleDirective implements OnInit, OnDestroy {
     // Kick off RAF outside Angular to keep change detection calm
     this.zone.runOutsideAngular(() => {
       const loop = (ts: number) => {
-        this.updateFrame(ts);
+        if (!this.lastFrameTs) this.lastFrameTs = ts;
+        const dt = ts - this.lastFrameTs;
+        if (dt >= this.minFrameIntervalMs) {
+          this.updateFrame(ts);
+          this.lastFrameTs = ts;
+        }
         this.rafId = requestAnimationFrame(loop);
       };
       this.rafId = requestAnimationFrame(loop);
@@ -497,7 +526,7 @@ export class BubbleDirective implements OnInit, OnDestroy {
           (Math.cos(p * 0.91 + this.morphPhase4) * 0.64 +
             Math.sin(p * 0.41 + this.morphPhase2) * 0.36);
 
-      const clampPct = (v: number) => Math.max(28, Math.min(72, v));
+      const clampPct = (v: number) => Math.max(42, Math.min(58, v)); // much tighter range for natural look
       const brString = `${clampPct(tlx).toFixed(2)}% ${clampPct(trx).toFixed(2)}% ${clampPct(
         brx,
       ).toFixed(
