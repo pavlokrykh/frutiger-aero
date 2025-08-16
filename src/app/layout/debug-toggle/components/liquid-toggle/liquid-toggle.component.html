@@ -1,0 +1,10 @@
+<button
+  bubble
+  type="button"
+  class="toggle-button"
+  [class.enabled]="enabled()"
+  [title]="enabled() ? 'Liquid Glass: ON' : 'Liquid Glass: OFF'"
+  (click)="toggleLiquidGlass()"
+>
+  LG
+</button>

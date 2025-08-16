@@ -6,13 +6,9 @@
   pointer-events: none;
 }
 
-.debug-toggle {
+.debug-toggle-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   pointer-events: none;
 }
-
-.debug-button {
-  pointer-events: auto;
-  font-weight: 600;
-}
-
-

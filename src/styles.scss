@@ -6,15 +6,11 @@ html, body, app-root {
 }
 body {
   margin: 0;
-  background-image: url('./assets/images/bg2.webp');
+  background-image: url('./assets/images/bg.jpg');
   background-repeat: no-repeat;
   background-position: center center;
   background-size: cover;
   background-attachment: fixed;
-}
-
-body.alt-bg {
-  background-image: url('./assets/images/bg.jpg');
 }
 
 button {

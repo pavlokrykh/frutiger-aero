@@ -24,6 +24,12 @@
         "@angular-eslint/directive-class-suffix": [
           "error",
           { "suffixes": ["Directive"] }
+        ],
+        "prettier/prettier": [
+          "error",
+          {
+            "endOfLine": "auto"
+          }
         ]
       }
     },
@@ -33,7 +39,14 @@
         "plugin:@angular-eslint/template/recommended",
         "plugin:prettier/recommended"
       ],
-      "rules": {}
+      "rules": {
+        "prettier/prettier": [
+          "error",
+          {
+            "endOfLine": "auto"
+          }
+        ]
+      }
     }
   ]
 }

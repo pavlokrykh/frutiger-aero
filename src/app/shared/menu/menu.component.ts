@@ -1,6 +1,7 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { BubbleDirective } from '../elements/bubble/bubble.directive';
+import { AudioService } from '../services/audio.service';
 
 @Component({
   selector: 'app-menu',
@@ -9,10 +10,23 @@ import { BubbleDirective } from '../elements/bubble/bubble.directive';
   styleUrl: './menu.component.scss',
 })
 export class MenuComponent {
-  readonly isOpen = signal(false);
-  readonly sizes = [55, 60, 65];
+  private readonly audioService = inject(AudioService);
 
-  toggleMenu() {
+  readonly isOpen = signal(false);
+  // Larger nav bubbles
+  readonly sizes = [84, 96, 108];
+
+  toggleMenu(): void {
+    const wasOpen = this.isOpen();
+
+    // When opening menu, play the sequence (pop + bubbles sound)
+    // When closing, just play a regular pop sound
+    if (!wasOpen) {
+      this.audioService.playMenuBubbleSequence();
+    } else {
+      this.audioService.playBubblePop();
+    }
+
     this.isOpen.update((prev) => !prev);
   }
 }

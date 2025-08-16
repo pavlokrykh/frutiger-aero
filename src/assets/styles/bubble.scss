@@ -5,23 +5,27 @@
   border-radius: 999px;
   /* Neutral, colorless membrane so refraction shows the scene without blue tint */
   background:
-    radial-gradient(120% 120% at 32% 28%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.10) 30%, rgba(255, 255, 255, 0.04) 55%, rgba(255, 255, 255, 0) 75%),
-    conic-gradient(from 210deg at 40% 45%, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.06)),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0.05) 100%),
-    radial-gradient(80% 80% at 70% 80%, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0) 65%);
+    radial-gradient(120% 120% at 32% 28%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.07) 30%, rgba(255, 255, 255, 0.03) 55%, rgba(255, 255, 255, 0) 75%),
+    conic-gradient(from 210deg at 40% 45%, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.05)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(0, 0, 0, 0.04) 100%),
+    radial-gradient(80% 80% at 70% 80%, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0) 65%),
+    /* faint iridescent sheen */
+    conic-gradient(from 0deg at 50% 50%, rgba(255, 0, 120, 0.08) 0deg, rgba(0, 200, 255, 0.06) 120deg, rgba(120, 255, 200, 0.06) 240deg, rgba(255, 0, 120, 0.08) 360deg);
   background-color: transparent;
   color: #0d2230;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.22);
+  /* layered rim for natural soft edge */
   box-shadow:
-    inset 0 0 0 1.5px rgba(255, 255, 255, 0.65),
-    inset 0 -6px 12px rgba(0, 0, 0, 0.10),
-    0 8px 18px rgba(0, 0, 0, 0.14);
+    inset 0 0 0 1.1px rgba(255, 255, 255, 0.55),
+    inset 0 0 0 2.6px rgba(255, 255, 255, 0.14),
+    inset 0 -6px 12px rgba(0, 0, 0, 0.08),
+    0 8px 18px rgba(0, 0, 0, 0.12);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 14px;
-  min-width: 44px;
-  min-height: 44px;
+  padding: 26px;
+  min-width: 52px;
+  min-height: 52px;
   aspect-ratio: 1 / 1;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -35,10 +39,10 @@
   left: 18%;
   width: 36%;
   height: 26%;
-  background: radial-gradient(60% 60% at 50% 50%, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0) 66%);
-  border-radius: 50%;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0) 66%);
+  border-radius: inherit; /* follow dynamic wobble radius */
   pointer-events: none;
-  filter: blur(0.8px);
+  filter: blur(0.5px);
 }
 
 .bubble::after {
@@ -48,10 +52,10 @@
   right: 20%;
   width: 20%;
   height: 16%;
-  background: radial-gradient(60% 60% at 50% 50%, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 66%);
-  border-radius: 50%;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 66%);
+  border-radius: inherit; /* follow dynamic wobble radius */
   pointer-events: none;
-  filter: blur(0.8px);
+  filter: blur(0.5px);
 }
 
 .bubble:focus-visible {
@@ -63,13 +67,15 @@
 .bubble {
   backface-visibility: hidden;
   transform: translateZ(0);
+  transform-origin: 50% 50%;
+  will-change: transform, border-radius;
   cursor: pointer;
 }
 
 /* Slight hover polish without adding glare */
 .bubble:hover {
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.58),
-    inset 0 -8px 14px rgba(10, 70, 140, 0.2),
-    0 12px 22px rgba(0, 40, 80, 0.18);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.52),
+    inset 0 -8px 14px rgba(10, 70, 140, 0.18),
+    0 12px 22px rgba(0, 40, 80, 0.16);
 }
