@@ -30,6 +30,9 @@ export class BubbleDirective implements OnInit, OnDestroy {
   @Input() bubbleGlassBlur: number | undefined;
   @Input() bubbleGlassDepth: number | undefined;
   @Input() bubbleGlassRadius: number | undefined;
+  // Wobble tuning
+  @Input() bubbleWobbleIntensity: number | undefined; // 0.5..2.0 (1 default)
+  @Input() bubbleWobbleSpeed: number | undefined; // 0.5..2.0 (1 default)
 
   // Base target position when expanded (randomized per bubble)
   private baseX = 0;
@@ -38,16 +41,24 @@ export class BubbleDirective implements OnInit, OnDestroy {
   private entryStartX = 0;
   private entryStartY = 0;
 
-  // Idle drift configuration (subtle but noticeable)
-  private driftAmplitudeX = 4 + Math.random() * 4; // px
-  private driftAmplitudeY = 4 + Math.random() * 4; // px
-  private driftSpeedX = 0.05 + Math.random() * 0.08; // cycles/sec
-  private driftSpeedY = 0.05 + Math.random() * 0.08; // cycles/sec
-  private wobbleSpeed = 0.015 + Math.random() * 0.035; // cycles/sec
-  private wobbleAmplitudeDeg = 1.2 + Math.random() * 0.9; // deg
+  // Idle drift configuration (stronger but still natural)
+  private driftAmplitudeX = 7 + Math.random() * 7; // px
+  private driftAmplitudeY = 7 + Math.random() * 7; // px
+  private driftSpeedX = 0.12 + Math.random() * 0.12; // cycles/sec (faster)
+  private driftSpeedY = 0.12 + Math.random() * 0.12; // cycles/sec (faster)
+  private wobbleSpeed = 0.035 + Math.random() * 0.06; // cycles/sec (faster)
+  private wobbleAmplitudeDeg = 2.4 + Math.random() * 1.2; // deg (stronger)
   private phaseOffsetX = Math.random() * Math.PI * 2;
   private phaseOffsetY = Math.random() * Math.PI * 2;
   private tetherRadius = 16 + Math.random() * 8; // px, clamp around base
+  // High-quality shape morph (elliptical border-radius wobble)
+  private morphPhase1 = Math.random() * Math.PI * 2;
+  private morphPhase2 = Math.random() * Math.PI * 2;
+  private morphPhase3 = Math.random() * Math.PI * 2;
+  private morphPhase4 = Math.random() * Math.PI * 2;
+  private morphBaseSpeed = 0.11 + Math.random() * 0.06; // cycles/sec (natural)
+  private morphBaseAmplitudePct = 6 + Math.random() * 5; // smoother, avoids squaring
+  private morphAnisotropyBase = 0.016 + Math.random() * 0.012; // gentle jelly anisotropy
 
   // Interaction state
   private isHovering = false;
@@ -84,13 +95,19 @@ export class BubbleDirective implements OnInit, OnDestroy {
   private containerH = 220;
   private containerLeft = 0;
   private resizeObserver: ResizeObserver | null = null;
+  private lastLGUpdate = 0;
+  private filterUpdateIntervalMs = 40; // throttle backdrop filter sync (ms)
+  // Cache last filter dimensions so we don't rebuild the expensive SVG URI
+  private lastFilterWidth = 0;
+  private lastFilterHeight = 0;
 
   ngOnInit(): void {
     // Ensure GPU-friendly transform updates
     const el = this.el.nativeElement;
-    el.style.willChange = 'transform';
+    el.style.willChange = 'transform, border-radius';
     el.style.transform = 'translate3d(0,0,0)';
     el.style.pointerEvents = 'none';
+    el.style.overflow = 'hidden'; // keep pseudo layers clipped to wobbling shape
 
     // Init backdrop-filter (liquid glass) and keep it in sync with size
     this.updateLiquidGlass();
@@ -297,8 +314,11 @@ export class BubbleDirective implements OnInit, OnDestroy {
           (this.driftSpeedY * 0.67),
       ) *
         (this.driftAmplitudeY * 0.7);
+    const wobbleIntensity = this.bubbleWobbleIntensity ?? 1;
+    const wobbleSpeedMul = this.bubbleWobbleSpeed ?? 1;
     const wobble =
-      Math.sin(t * Math.PI * 2 * this.wobbleSpeed) * this.wobbleAmplitudeDeg; // deg
+      Math.sin(t * Math.PI * 2 * (this.wobbleSpeed * wobbleSpeedMul)) *
+      (this.wobbleAmplitudeDeg * wobbleIntensity); // deg
 
     // Base position depending on open progress
     const lerp = (a: number, b: number, p: number) => a + (b - a) * p;
@@ -395,7 +415,7 @@ export class BubbleDirective implements OnInit, OnDestroy {
       }
     }
 
-    // Non-uniform squash-and-stretch during inflation
+    // Non-uniform squash-and-stretch during inflation and idle morph
     let scaleX = renderScale;
     let scaleY = renderScale;
     if (this.reappearActive) {
@@ -412,6 +432,95 @@ export class BubbleDirective implements OnInit, OnDestroy {
         const squash = Math.sin((1 - p) * Math.PI * 0.6);
         scaleX = renderScale * (1 - 0.03 * squash);
         scaleY = renderScale * (1 + 0.04 * squash);
+      }
+    }
+
+    // High-quality border-radius morph + subtle idle anisotropy
+    // This runs even when not inflating, to emulate soft jelly dynamics
+    if (!this.popActive) {
+      const morphSpeedMul = this.bubbleWobbleSpeed ?? 1;
+      const morphIntensity = this.bubbleWobbleIntensity ?? 1;
+      // Scale bends slightly with actual bubble size to keep large bubbles expressive
+      const sizeScale = Math.min(
+        1.8,
+        Math.max(
+          0.9,
+          (Math.max(
+            this.el.nativeElement.offsetWidth,
+            this.el.nativeElement.offsetHeight,
+          ) || 48) / 56,
+        ),
+      );
+      const amp = this.morphBaseAmplitudePct * morphIntensity * sizeScale; // percentage points
+      const p = t * this.morphBaseSpeed * morphSpeedMul * Math.PI * 2;
+
+      // Use mixed frequencies to avoid obvious repetition
+      const tlx =
+        50 +
+        amp *
+          (Math.sin(p + this.morphPhase1) * 0.7 +
+            Math.sin(p * 0.5 + this.morphPhase2) * 0.3);
+      const trx =
+        50 +
+        amp *
+          (Math.sin(p * 0.9 + this.morphPhase2) * 0.65 +
+            Math.cos(p * 0.42 + this.morphPhase3) * 0.35);
+      const brx =
+        50 +
+        amp *
+          (Math.cos(p * 1.07 + this.morphPhase3) * 0.72 +
+            Math.sin(p * 0.53 + this.morphPhase4) * 0.28);
+      const blx =
+        50 +
+        amp *
+          (Math.cos(p * 0.84 + this.morphPhase4) * 0.68 +
+            Math.sin(p * 0.37 + this.morphPhase1) * 0.32);
+
+      const tly =
+        50 +
+        amp *
+          (Math.cos(p * 0.88 + this.morphPhase1) * 0.7 +
+            Math.sin(p * 0.44 + this.morphPhase3) * 0.3);
+      const try_ =
+        50 +
+        amp *
+          (Math.sin(p * 0.93 + this.morphPhase2) * 0.66 +
+            Math.cos(p * 0.49 + this.morphPhase4) * 0.34);
+      const bry =
+        50 +
+        amp *
+          (Math.sin(p * 1.12 + this.morphPhase3) * 0.7 +
+            Math.cos(p * 0.46 + this.morphPhase1) * 0.3);
+      const bly =
+        50 +
+        amp *
+          (Math.cos(p * 0.91 + this.morphPhase4) * 0.64 +
+            Math.sin(p * 0.41 + this.morphPhase2) * 0.36);
+
+      const clampPct = (v: number) => Math.max(28, Math.min(72, v));
+      const brString = `${clampPct(tlx).toFixed(2)}% ${clampPct(trx).toFixed(2)}% ${clampPct(
+        brx,
+      ).toFixed(
+        2,
+      )}% ${clampPct(blx).toFixed(2)}% / ${clampPct(tly).toFixed(2)}% ${clampPct(
+        try_,
+      ).toFixed(2)}% ${clampPct(bry).toFixed(2)}% ${clampPct(bly).toFixed(2)}%`;
+
+      const el = this.el.nativeElement;
+      el.style.borderRadius = brString;
+
+      // Idle anisotropy synced to morph for a jelly effect
+      const jelly = Math.sin(p * 0.5 + this.morphPhase2);
+      const idleAniso = this.morphAnisotropyBase * morphIntensity;
+      if (!this.reappearActive) {
+        scaleX *= 1 + idleAniso * jelly;
+        scaleY *= 1 - idleAniso * jelly;
+      }
+
+      // Keep displacement filter roughly in sync with the changing shape
+      if (now - this.lastLGUpdate > this.filterUpdateIntervalMs) {
+        this.updateLiquidGlass();
+        this.lastLGUpdate = now;
       }
     }
 
@@ -441,12 +550,34 @@ export class BubbleDirective implements OnInit, OnDestroy {
 
   private updateLiquidGlass() {
     const el = this.el.nativeElement;
+    // If the element currently has a CSS transform (scale/etc.), prefer the
+    // layout size (offsetWidth/offsetHeight) so the generated SVG filter
+    // remains stable and doesn't resize in coarse steps while the bubble
+    // is being smoothly transformed. This prevents the visible "reapply"
+    // stutter where the filter is recreated only a few times during a
+    // continuous CSS scale.
     const rect = el.getBoundingClientRect();
-    const width = Math.max(1, Math.round(rect.width || el.offsetWidth || 48));
+    const cs = getComputedStyle(el);
+    const hasTransform = !!(cs && cs.transform && cs.transform !== 'none');
+
+    const width = Math.max(
+      1,
+      Math.round(
+        (hasTransform ? el.offsetWidth : rect.width) || el.offsetWidth || 48,
+      ),
+    );
     const height = Math.max(
       1,
-      Math.round(rect.height || el.offsetHeight || 48),
+      Math.round(
+        (hasTransform ? el.offsetHeight : rect.height) || el.offsetHeight || 48,
+      ),
     );
+
+    // If dimensions haven't meaningfully changed since the last build,
+    // skip rebuilding the expensive SVG/data-uri filter.
+    if (width === this.lastFilterWidth && height === this.lastFilterHeight) {
+      return;
+    }
     // Enlarge radius for refraction so bending starts further from edge
     const visualRadius = Math.round(
       this.bubbleGlassRadius ?? this.computeRadiusPx(el, width, height),
@@ -479,6 +610,9 @@ export class BubbleDirective implements OnInit, OnDestroy {
 
     el.style.setProperty('backdrop-filter', filter);
     el.style.setProperty('-webkit-backdrop-filter', filter);
+
+  this.lastFilterWidth = width;
+  this.lastFilterHeight = height;
   }
 
   private computeRadiusPx(
