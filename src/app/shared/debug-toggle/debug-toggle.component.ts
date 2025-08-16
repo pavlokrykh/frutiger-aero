@@ -17,6 +17,8 @@ export class DebugToggleComponent {
     './assets/images/bg2.webp',
     './assets/images/bg3.jpg',
     './assets/images/bg4.jpg',
+    './assets/images/bg5.png',
+    './assets/images/bg6.png',
   ];
 
   private readonly documentRef = inject(DOCUMENT);
