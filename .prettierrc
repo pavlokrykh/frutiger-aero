@@ -1,6 +1,7 @@
 {
   "singleQuote": true,
   "printWidth": 140,
+  "endOfLine": "auto",
   "overrides": [
     {
       "files": "*.html",

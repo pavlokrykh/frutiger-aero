@@ -14,7 +14,7 @@ export class DebugToggleComponent {
 
   private readonly backgrounds = [
     './assets/images/bg.jpg',
-    './assets/images/bg2.webp',
+    // './assets/images/bg2.webp',
     './assets/images/bg3.jpg',
     './assets/images/bg4.jpg',
     './assets/images/bg5.png',
