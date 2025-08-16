@@ -13,6 +13,11 @@ export class AudioService {
   private targetVolume = 0.1; // 10% volume
   private hasFadedOut = false; // Track if we've already started fade out
 
+  // Autoplay handling: when browser blocks autoplay, we wait for a user gesture
+  private pendingAutoplay = false;
+  private userInteracted = false;
+  private boundUserGestureHandler: (() => void) | null = null;
+
   // Bubble pop sound configuration
   private readonly popSounds: readonly string[] = [
     'assets/audio/bubbles/pop/bubble-pop-03-320977.mp3',
@@ -32,6 +37,24 @@ export class AudioService {
 
   constructor() {
     this.initializeAudio();
+
+    // Track whether the user has interacted with the page yet (one-time)
+    const markInteracted = () => {
+      this.userInteracted = true;
+      document.removeEventListener(
+        'pointerdown',
+        markInteracted as EventListener,
+      );
+      document.removeEventListener('keydown', markInteracted as EventListener);
+      document.removeEventListener(
+        'touchstart',
+        markInteracted as EventListener,
+      );
+    };
+
+    document.addEventListener('pointerdown', markInteracted, { once: true });
+    document.addEventListener('keydown', markInteracted, { once: true });
+    document.addEventListener('touchstart', markInteracted, { once: true });
   }
 
   private initializeAudio(): void {
@@ -55,11 +78,60 @@ export class AudioService {
     });
   }
 
+  private attachUserGestureListener() {
+    if (this.boundUserGestureHandler) return;
+    this.boundUserGestureHandler = () => {
+      // Any user gesture should attempt to start playback once
+      this.detachUserGestureListener();
+      if (this.isPlaying) {
+        // Try playing again now that a gesture occurred
+        this.playWithFadeIn();
+      }
+    };
+
+    // Listen for common first-interaction events (one-time handlers)
+    document.addEventListener('pointerdown', this.boundUserGestureHandler, {
+      once: true,
+    });
+    document.addEventListener('keydown', this.boundUserGestureHandler, {
+      once: true,
+    });
+    document.addEventListener('touchstart', this.boundUserGestureHandler, {
+      once: true,
+    });
+  }
+
+  private detachUserGestureListener() {
+    if (!this.boundUserGestureHandler) return;
+    document.removeEventListener(
+      'pointerdown',
+      this.boundUserGestureHandler as EventListener,
+    );
+    document.removeEventListener(
+      'keydown',
+      this.boundUserGestureHandler as EventListener,
+    );
+    document.removeEventListener(
+      'touchstart',
+      this.boundUserGestureHandler as EventListener,
+    );
+    this.boundUserGestureHandler = null;
+    this.pendingAutoplay = false;
+  }
+
   startLooping(): void {
     if (this.isPlaying) return;
 
     this.isPlaying = true;
-    this.playWithFadeIn();
+
+    // If the user already interacted, attempt to play immediately, otherwise
+    // wait for a user gesture to avoid autoplay blocking errors and console spam.
+    if (this.userInteracted) {
+      this.playWithFadeIn();
+    } else {
+      this.pendingAutoplay = true;
+      this.attachUserGestureListener();
+    }
   }
 
   stopLooping(): void {
@@ -91,13 +163,25 @@ export class AudioService {
         this.fadeIn();
       })
       .catch((error) => {
-        console.error('Error playing audio:', error);
-        // Retry after a short delay if autoplay is blocked
-        setTimeout(() => {
-          if (this.isPlaying) {
-            this.playWithFadeIn();
-          }
-        }, 1000);
+        // Modern browsers block autoplay without a user interaction (NotAllowedError).
+        // Instead of retrying in a tight loop, register a one-time user gesture
+        // listener and try again when the user interacts.
+        const msg = String(error && (error.message || error));
+        const isNotAllowed =
+          Boolean(error && error.name === 'NotAllowedError') ||
+          /didn't interact|NotAllowedError|Interaction|user gesture|play\(\) failed/i.test(
+            msg,
+          );
+
+        if (isNotAllowed) {
+          console.warn(
+            'Autoplay blocked by browser — will start audio on first user interaction.',
+          );
+          this.pendingAutoplay = true;
+          this.attachUserGestureListener();
+        } else {
+          console.error('Error playing audio:', error);
+        }
       });
   }
 

@@ -1,7 +1,7 @@
 import { Component, signal, OnInit, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { MenuComponent } from './shared/menu/menu.component';
-import { DebugToggleComponent } from './shared/debug-toggle/debug-toggle.component';
+import { DebugToggleComponent } from './layout/debug-toggle/debug-toggle.component';
 import { AudioService } from './shared/services/audio.service';
 
 @Component({

@@ -1,20 +1,20 @@
 import { Component, inject, signal } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
-import { BubbleDirective } from '../elements/bubble/bubble.directive';
+import { BubbleDirective } from '../../../../shared/elements/bubble/bubble.directive';
 
 @Component({
-  selector: 'app-debug-toggle',
+  selector: 'app-bg-toggle',
   standalone: true,
   imports: [BubbleDirective],
-  templateUrl: './debug-toggle.component.html',
-  styleUrl: './debug-toggle.component.scss',
+  templateUrl: './bg-toggle.component.html',
+  styleUrl: './bg-toggle.component.scss',
 })
-export class DebugToggleComponent {
+export class BgToggleComponent {
   private readonly currentBgIndex = signal(1); // Start at index 1 to match initial bg2.webp
 
   private readonly backgrounds = [
     './assets/images/bg.jpg',
-    // './assets/images/bg2.webp',
+    './assets/images/bg2.webp',
     './assets/images/bg3.jpg',
     './assets/images/bg4.jpg',
     './assets/images/bg5.png',

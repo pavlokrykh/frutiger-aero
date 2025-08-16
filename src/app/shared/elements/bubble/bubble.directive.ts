@@ -8,9 +8,12 @@ import {
   NgZone,
   OnDestroy,
   OnInit,
+  effect,
+  untracked,
 } from '@angular/core';
 import { buildBackdropFilter } from './liquid-glass';
 import { AudioService } from '../../services/audio.service';
+import { LiquidGlassService } from '../../services/liquid-glass.service';
 
 @Directive({
   selector: '[bubble]',
@@ -92,6 +95,20 @@ export class BubbleDirective implements OnInit, OnDestroy {
   private readonly el = inject(ElementRef) as ElementRef<HTMLElement>;
   private readonly zone = inject(NgZone);
   private readonly audioService = inject(AudioService);
+  private readonly liquidGlassService = inject(LiquidGlassService);
+
+  // Effect to react to liquid glass service changes - must be in injection context
+  private readonly liquidGlassEffect = effect(() => {
+    // This will run whenever liquidGlassService.enabled() changes
+    const isEnabled = this.liquidGlassService.enabled();
+    // Use untracked to avoid potential circular dependencies
+    untracked(() => {
+      // Only update if the component has been initialized
+      if (this.el?.nativeElement) {
+        this.updateLiquidGlass();
+      }
+    });
+  });
   private containerEl: HTMLElement | null = null;
   private containerW = 240;
   private containerH = 220;
@@ -177,6 +194,7 @@ export class BubbleDirective implements OnInit, OnDestroy {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
     }
+    // The effect will be automatically cleaned up when the directive is destroyed
   }
 
   @Input()
@@ -653,6 +671,19 @@ export class BubbleDirective implements OnInit, OnDestroy {
 
   private updateLiquidGlass() {
     const el = this.el.nativeElement;
+    const isEnabled = this.liquidGlassService.enabled();
+
+    // Check if liquid glass is enabled
+    if (!isEnabled) {
+      // Remove backdrop filter if disabled
+      el.style.removeProperty('backdrop-filter');
+      el.style.removeProperty('-webkit-backdrop-filter');
+      // Reset cached dimensions so filter rebuilds when re-enabled
+      this.lastFilterWidth = 0;
+      this.lastFilterHeight = 0;
+      return;
+    }
+
     // If the element currently has a CSS transform (scale/etc.), prefer the
     // layout size (offsetWidth/offsetHeight) so the generated SVG filter
     // remains stable and doesn't resize in coarse steps while the bubble
@@ -678,7 +709,8 @@ export class BubbleDirective implements OnInit, OnDestroy {
 
     // If dimensions haven't meaningfully changed since the last build,
     // skip rebuilding the expensive SVG/data-uri filter.
-    if (width === this.lastFilterWidth && height === this.lastFilterHeight) {
+    // But always rebuild if we just re-enabled (lastFilterWidth/Height would be 0)
+    if (width === this.lastFilterWidth && height === this.lastFilterHeight && this.lastFilterWidth > 0) {
       return;
     }
     // Enlarge radius for refraction so bending starts further from edge
