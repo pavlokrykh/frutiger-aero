@@ -36,29 +36,6 @@ function makeKey(opts: DisplacementOptions) {
   ].join('x');
 }
 
-function isLowPowerOrMobile(): boolean {
-  try {
-    if (typeof navigator === 'undefined') return false;
-    const nav = navigator as unknown as {
-      userAgent?: string;
-      connection?: { saveData?: boolean; effectiveType?: string };
-      deviceMemory?: number;
-    };
-  // Conservative low-power detection: only enable fallback when explicit
-  // signals indicate constrained device/connection. Avoid treating all
-  // mobile user agents as low-power because modern phones (Snapdragon, etc.)
-  // can handle the effect.
-  const saveData = !!nav.connection?.saveData;
-  const effectiveType = nav.connection?.effectiveType || '';
-  const slowNet = /2g|slow-2g/.test(effectiveType);
-  const deviceMem = nav.deviceMemory || 0;
-  const veryLowMem = deviceMem > 0 ? deviceMem < 1.5 : false;
-  return saveData || slowNet || veryLowMem;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Create the displacement map used by feDisplacementMap.
  * Gradients take the radius into account so borders get symmetric distortions.
@@ -76,13 +53,9 @@ export function getDisplacementMap({
   const innerY = edgeRamp;
   const innerW = Math.max(1, width - edgeRamp * 2);
   const innerH = Math.max(1, height - edgeRamp * 2);
-  // If on a low-power / mobile device, generate a much smaller map so the
-  // feImage/feDisplacementMap work is cheaper; scale down radius/depth
-  // slightly to preserve a decent look.
-  const lowPower = isLowPowerOrMobile();
-  const outWidth = lowPower ? Math.max(48, Math.round(width / 2)) : width;
-  const outHeight = lowPower ? Math.max(48, Math.round(height / 2)) : height;
-  const outDepth = lowPower ? Math.max(6, Math.round(depth * 0.6)) : depth;
+  const outWidth = width;
+  const outHeight = height;
+  const outDepth = depth;
 
   const svg = `<svg height="${outHeight}" width="${outWidth}" viewBox="0 0 ${outWidth} ${outHeight}" xmlns="http://www.w3.org/2000/svg">
     <style>
@@ -144,24 +117,41 @@ export function getDisplacementFilter({
 
   // If on low-power/mobile, prefer generating a much smaller SVG filter and
   // reduce the displacement strength/CA to avoid heavy pixel work.
-  const lowPower = isLowPowerOrMobile();
   const map = getDisplacementMap({ height, width, radius, depth });
-  const outWidth = lowPower ? Math.max(48, Math.round(width / 2)) : width;
-  const outHeight = lowPower ? Math.max(48, Math.round(height / 2)) : height;
+  const outWidth = width;
+  const outHeight = height;
 
+  // Enhanced filter: perform the displacement as before, then derive an "edge"
+  // mask from the same displacement map, tint it aqua/white and screen-blend it
+  // onto the displaced result to create lighter bluish rim accents.
   const svg = `<svg height="${outHeight}" width="${outWidth}" viewBox="0 0 ${outWidth} ${outHeight}" xmlns="http://www.w3.org/2000/svg">
     <defs>
     <filter id="displace" color-interpolation-filters="sRGB">
-      <!-- Single displacement map pass for performance -->
+      <!-- Displacement pass -->
       <feImage x="0" y="0" height="${outHeight}" width="${outWidth}" href="${map}" result="dmap" preserveAspectRatio="xMidYMid slice" />
-      <feDisplacementMap in="SourceGraphic" in2="dmap" scale="${Math.round(safeStrength * (lowPower ? 0.6 : 1))}" xChannelSelector="R" yChannelSelector="G" />
-      <!-- Slight blur and contrast tweak to soften artifacts -->
-      <feGaussianBlur stdDeviation="${lowPower ? 0.6 : 0.9}" result="blurred" />
-            <feColorMatrix type="matrix" values="1.02 0 0 0 0  0 1.01 0 0 0  0 0 1 0 0  0 0 0 1 0" in="blurred" />
+  <feDisplacementMap in="SourceGraphic" in2="dmap" scale="${Math.round(safeStrength)}" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+
+  <!-- Soften artifacts -->
+  <feGaussianBlur in="displaced" stdDeviation="0.9" result="blurred" />
+      <feColorMatrix type="matrix" values="1.02 0 0 0 0  0 1.01 0 0 0  0 0 1 0 0  0 0 0 1 0" in="blurred" result="colorized" />
+
+      <!-- Edge tint pipeline: use the same displacement map to derive an edge mask -->
+      <feImage x="0" y="0" height="${outHeight}" width="${outWidth}" href="${map}" result="edgeMap" preserveAspectRatio="xMidYMid slice" />
+  <feGaussianBlur in="edgeMap" stdDeviation="1.6" result="edgeBlur" />
+  <feColorMatrix in="edgeBlur" type="luminanceToAlpha" result="edgeAlpha" />
+  <feFlood flood-color="#e6fbff" flood-opacity="0.32" result="edgeColor" />
+      <feComposite in="edgeColor" in2="edgeAlpha" operator="in" result="edgeTint" />
+
+      <!-- Screen-blend the tint over the colorized displaced graphic for bright aqua rims -->
+      <feBlend in="colorized" in2="edgeTint" mode="screen" result="final" />
+      <feMerge>
+        <feMergeNode in="final" />
+      </feMerge>
     </filter>
     </defs>
   </svg>`;
-  const data = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '#displace';
+  const data =
+    'data:image/svg+xml;utf8,' + encodeURIComponent(svg) + '#displace';
 
   // Cache result for subsequent similar sizes.
   try {
@@ -193,13 +183,6 @@ export function buildBackdropFilter({
   // Reintroduce a touch more blur (still far less than original)
   blur = 1.8,
 }: DisplacementOptions & { blur?: number }): string {
-  // On low-power/mobile devices return a much cheaper filter: small blur + slight contrast.
-  const lowPower = isLowPowerOrMobile();
-  if (lowPower) {
-    // keep a tiny blur and mild color adjustments, avoid the expensive url(...) displacement
-  return `blur(${Math.max(0.8, blur * 0.6).toFixed(2)}px) contrast(1.02) brightness(1.01) saturate(1.01)`;
-  }
-
   const url = getDisplacementFilter({
     height,
     width,
@@ -208,6 +191,7 @@ export function buildBackdropFilter({
     strength,
     chromaticAberration,
   });
+
   // Order matters: small pre-blur -> displacement -> small post-blur
   // Keeps clarity while adding a gentle softening of refracted edges
   return `blur(${(blur * 0.7).toFixed(2)}px) url('${url}') blur(${(

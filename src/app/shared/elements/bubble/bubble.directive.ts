@@ -99,8 +99,8 @@ export class BubbleDirective implements OnInit, OnDestroy {
 
   // Effect to react to liquid glass service changes - must be in injection context
   private readonly liquidGlassEffect = effect(() => {
-    // This will run whenever liquidGlassService.enabled() changes
-    const isEnabled = this.liquidGlassService.enabled();
+    // Read the signal to subscribe to changes (avoid unused variable lint)
+    this.liquidGlassService.enabled();
     // Use untracked to avoid potential circular dependencies
     untracked(() => {
       // Only update if the component has been initialized
@@ -119,13 +119,12 @@ export class BubbleDirective implements OnInit, OnDestroy {
   // Cache last filter dimensions so we don't rebuild the expensive SVG URI
   private lastFilterWidth = 0;
   private lastFilterHeight = 0;
-  // Low-power mode flags and RAF throttling
-  private lowPowerMode = false;
   private lastFrameTs = 0;
   private minFrameIntervalMs = 16; // ms between frames (60fps)
   // Track last written styles to avoid redundant DOM writes
   private lastTransform = '';
   private lastOpacity = '';
+  private edgeOverlay: HTMLElement | null = null;
 
   ngOnInit(): void {
     // Ensure GPU-friendly transform updates
@@ -134,26 +133,34 @@ export class BubbleDirective implements OnInit, OnDestroy {
     el.style.transform = 'translate3d(0,0,0)';
     el.style.pointerEvents = 'none';
     el.style.overflow = 'hidden'; // keep pseudo layers clipped to wobbling shape
+    // Ensure the host can contain absolutely-positioned overlays
+    const cs = getComputedStyle(el);
+    if (cs.position === 'static' || !cs.position) {
+      el.style.position = 'relative';
+    }
 
     // Init backdrop-filter (liquid glass) and keep it in sync with size
     this.updateLiquidGlass();
-    // lightweight low-power/mobile detection to reduce visual fidelity
-    try {
-      const nav = navigator as unknown as {
-        connection?: { saveData?: boolean; effectiveType?: string };
-        deviceMemory?: number;
-      };
-      const saveData = !!nav.connection?.saveData;
-      const slowNet = /2g|slow-2g/.test(nav.connection?.effectiveType || '');
-      const veryLowMem =
-        (nav.deviceMemory || 0) > 0 ? nav.deviceMemory! < 1.5 : false;
-      if (saveData || slowNet || veryLowMem) {
-        this.lowPowerMode = true;
-        this.filterUpdateIntervalMs = 220;
-        this.minFrameIntervalMs = 40; // ~25fps
-      }
-    } catch {
-      // ignore
+    // Create a persistent edge overlay for brighter aqua/white rims
+    if (!this.edgeOverlay) {
+      const overlay = document.createElement('div');
+      Object.assign(overlay.style, {
+        position: 'absolute',
+        left: '0',
+        top: '0',
+        width: '100%',
+        height: '100%',
+        borderRadius: 'inherit',
+        pointerEvents: 'none',
+        mixBlendMode: 'screen',
+        opacity: '0.9',
+        transition: 'opacity 220ms ease',
+        background:
+          'radial-gradient(circle at 26% 22%, rgba(230,251,255,0.32) 0%, rgba(230,251,255,0) 28%), radial-gradient(circle at 72% 68%, rgba(200,240,255,0.18) 0%, rgba(200,240,255,0) 46%)',
+        filter: 'blur(2px) contrast(1.08)',
+      } as CSSStyleDeclaration);
+      this.edgeOverlay = overlay;
+      el.appendChild(overlay);
     }
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => {
@@ -193,6 +200,11 @@ export class BubbleDirective implements OnInit, OnDestroy {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
+    }
+    // remove overlay if present
+    if (this.edgeOverlay && this.edgeOverlay.parentElement) {
+      this.edgeOverlay.remove();
+      this.edgeOverlay = null;
     }
     // The effect will be automatically cleaned up when the directive is destroyed
   }
@@ -675,15 +687,28 @@ export class BubbleDirective implements OnInit, OnDestroy {
 
     // Check if liquid glass is enabled
     if (!isEnabled) {
-      // Remove backdrop filter if disabled
+      // Remove liquid glass backdrop filter if disabled
       el.style.removeProperty('backdrop-filter');
       el.style.removeProperty('-webkit-backdrop-filter');
       // Reset cached dimensions so filter rebuilds when re-enabled
       this.lastFilterWidth = 0;
       this.lastFilterHeight = 0;
+      // hide the edge overlay when liquid glass is off
+      if (this.edgeOverlay) this.edgeOverlay.style.opacity = '0';
+
+      // Apply fallback style: stronger backdrop blur with more opaque white
+      el.style.setProperty('backdrop-filter', 'blur(2px)');
+      el.style.setProperty('-webkit-backdrop-filter', 'blur(2px)');
+      el.style.setProperty('background-color', 'rgba(255, 255, 255, 0.2)');
+      el.style.setProperty('border', '1px solid rgba(255, 255, 255, 0.4)');
       return;
     }
 
+    // Remove fallback styles when liquid glass is enabled - but keep backdrop-filter for liquid glass
+    el.style.removeProperty('background-color');
+    el.style.removeProperty('border');
+    // Keep a visible but subtle overlay when enabled
+    if (this.edgeOverlay) this.edgeOverlay.style.opacity = '0.9';
     // If the element currently has a CSS transform (scale/etc.), prefer the
     // layout size (offsetWidth/offsetHeight) so the generated SVG filter
     // remains stable and doesn't resize in coarse steps while the bubble
@@ -710,7 +735,11 @@ export class BubbleDirective implements OnInit, OnDestroy {
     // If dimensions haven't meaningfully changed since the last build,
     // skip rebuilding the expensive SVG/data-uri filter.
     // But always rebuild if we just re-enabled (lastFilterWidth/Height would be 0)
-    if (width === this.lastFilterWidth && height === this.lastFilterHeight && this.lastFilterWidth > 0) {
+    if (
+      width === this.lastFilterWidth &&
+      height === this.lastFilterHeight &&
+      this.lastFilterWidth > 0
+    ) {
       return;
     }
     // Enlarge radius for refraction so bending starts further from edge
