@@ -402,11 +402,42 @@ export class BubbleDirective implements OnInit, OnDestroy {
     // Determine scale/opacity overrides for pop and reappear sequences
     let renderScale = this.currentScale;
     let renderOpacity = 1;
+    
+    // Initialize scale values early to avoid declaration errors
+    let scaleX = renderScale;
+    let scaleY = renderScale;
 
     if (this.popActive) {
-      // Realistic pop: the membrane vanishes immediately
-      renderScale = 1;
-      renderOpacity = 0;
+      const popElapsed = now - this.popStartTs;
+      
+      // Real bubble pop sequence: brief wobble -> shrink to nothing
+      const p = Math.min(1, popElapsed / 70);
+      
+      if (p < 0.3) {
+        // Phase 1: Brief surface tension wobble
+        const wobbleP = p / 0.3;
+        const wobble = Math.sin(wobbleP * Math.PI * 3) * 0.06;
+        renderScale = 1 + wobble;
+        renderOpacity = 1 - wobbleP * 0.1;
+        
+        // Gentle deformation during wobble
+        const deform = Math.sin(wobbleP * Math.PI * 4) * 0.08;
+        scaleX = renderScale * (1 + deform);
+        scaleY = renderScale * (1 - deform * 0.6);
+      } else {
+        // Phase 2: Continuous shrink to absolute zero
+        const shrinkP = (p - 0.3) / 0.7;
+        const easeInCubic = (x: number) => x * x * x;
+        const shrink = easeInCubic(shrinkP);
+        
+        // Shrink all the way to 0
+        renderScale = (1 - shrink);
+        renderOpacity = (1 - shrink);
+        
+        // Keep circular during shrink
+        scaleX = renderScale;
+        scaleY = renderScale;
+      }
 
       // Transition to reappear state after a short delay
       if (now >= this.reappearAtTs) {
@@ -420,23 +451,43 @@ export class BubbleDirective implements OnInit, OnDestroy {
       }
     } else if (this.reappearActive) {
       const e = now - this.reappearStartTs;
-      // Inflate like mouth-blown bubble: gentle ease-in, mild overshoot, slow settle
-      if (e <= 300) {
-        const p = Math.min(1, e / 300);
-        // easeInOutCubic for smooth inflate
-        const easeInOutCubic = (x: number) =>
-          x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
-        const eased = easeInOutCubic(p);
-        const startScale = 0.15;
-        const targetScale = 1.08;
-        renderScale = startScale + (targetScale - startScale) * eased;
-        renderOpacity = Math.min(1, (e / 300) * 1.2);
-      } else if (e <= 500) {
-        const p = Math.min(1, (e - 300) / 280);
-        // subtle settle from 1.08 -> 1.0
-        const easeOut = 1 - Math.pow(1 - p, 3);
+      
+      // Realistic bubble inflation: start absolutely tiny -> rapid growth -> settle
+      if (e <= 150) {
+        // Single phase: Continuous inflation from 0 to full size
+        const p = Math.min(1, e / 150);
+        
+        // Start from absolutely nothing (0.01) and grow to full size
+        const easeOutBack = (x: number) => {
+          const c1 = 1.70158;
+          const c3 = c1 + 1;
+          return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+        };
+        
+        const eased = easeOutBack(p);
+        renderScale = 0.01 + (1.08 - 0.01) * eased; // slight overshoot
+        renderOpacity = Math.min(1, p * 1.5);
+        
+        // Inflation stretching effect - starts elongated, becomes round
+        if (p < 0.7) {
+          const stretch = Math.sin(p * Math.PI) * 0.15;
+          scaleX = renderScale * (1 - stretch * 0.4);
+          scaleY = renderScale * (1 + stretch * 0.8);
+        } else {
+          // Final phase: settle to perfect circle
+          const settleP = (p - 0.7) / 0.3;
+          const settle = (1 - settleP) * 0.08;
+          scaleX = renderScale * (1 + settle);
+          scaleY = renderScale * (1 - settle * 0.5);
+        }
+      } else if (e <= 200) {
+        // Quick settle to normal size
+        const p = Math.min(1, (e - 150) / 50);
+        const easeOut = 1 - Math.pow(1 - p, 2);
         renderScale = 1.08 + (1 - 1.08) * easeOut;
         renderOpacity = 1;
+        scaleX = renderScale;
+        scaleY = renderScale;
       } else {
         this.reappearActive = false;
         renderScale = 1;
@@ -444,29 +495,11 @@ export class BubbleDirective implements OnInit, OnDestroy {
       }
     }
 
-    // Non-uniform squash-and-stretch during inflation and idle morph
-    let scaleX = renderScale;
-    let scaleY = renderScale;
-    if (this.reappearActive) {
-      const e = now - this.reappearStartTs;
-      const phase1 = 420; // inflate
-      const phase2 = 700; // settle
-      if (e <= phase1) {
-        const p = Math.min(1, e / phase1);
-        const squash = Math.sin(p * Math.PI * 0.9);
-        scaleX = renderScale * (1 + 0.06 * squash);
-        scaleY = renderScale * (1 - 0.05 * squash);
-      } else if (e <= phase2) {
-        const p = Math.min(1, (e - phase1) / (phase2 - phase1));
-        const squash = Math.sin((1 - p) * Math.PI * 0.6);
-        scaleX = renderScale * (1 - 0.03 * squash);
-        scaleY = renderScale * (1 + 0.04 * squash);
-      }
-    }
+    // Scale values are now initialized above and modified by pop/reappear logic
 
     // High-quality border-radius morph + subtle idle anisotropy
     // This runs even when not inflating, to emulate soft jelly dynamics
-    if (!this.popActive) {
+    if (!this.popActive && !this.reappearActive) {
       const morphSpeedMul = this.bubbleWobbleSpeed ?? 1;
       const morphIntensity = this.bubbleWobbleIntensity ?? 1;
       // Scale bends slightly with actual bubble size to keep large bubbles expressive
@@ -550,6 +583,39 @@ export class BubbleDirective implements OnInit, OnDestroy {
       if (now - this.lastLGUpdate > this.filterUpdateIntervalMs) {
         this.updateLiquidGlass();
         this.lastLGUpdate = now;
+      }
+    } else if (this.popActive) {
+      // Gentle deformation during pop - border-radius slightly irregular
+      const popElapsed = now - this.popStartTs;
+      if (popElapsed <= 28) { // only during wobble phase
+        const p = Math.min(1, popElapsed / 28);
+        const wobble = Math.sin(p * Math.PI * 3) * 0.15; // much gentler
+        const el = this.el.nativeElement;
+        // Slight irregularity as surface tension fluctuates
+        const r1 = 50 + wobble * 8;
+        const r2 = 50 - wobble * 6;
+        const r3 = 50 + wobble * 5;
+        const r4 = 50 - wobble * 7;
+        el.style.borderRadius = `${r1}% ${r2}% ${r3}% ${r4}%`;
+      } else {
+        // During shrink, maintain perfect circle
+        const el = this.el.nativeElement;
+        el.style.borderRadius = '50%';
+      }
+    } else if (this.reappearActive) {
+      // Smooth formation - border-radius gradually becomes perfect circle
+      const e = now - this.reappearStartTs;
+      const el = this.el.nativeElement;
+      
+      if (e <= 100) {
+        // During early inflation, slight irregularity as membrane forms
+        const p = Math.min(1, e / 100);
+        const formation = Math.sin(p * Math.PI * 1.5) * (1 - p) * 6;
+        const base = 50;
+        el.style.borderRadius = `${base + formation}% ${base - formation * 0.5}% ${base + formation * 0.3}% ${base - formation * 0.4}%`;
+      } else {
+        // Perfect circle achieved
+        el.style.borderRadius = '50%';
       }
     }
 
@@ -666,17 +732,23 @@ export class BubbleDirective implements OnInit, OnDestroy {
   private triggerPop() {
     this.popActive = true;
     this.popStartTs = performance.now();
-    // Dramatic pop: allow explosion visuals to play, then reappear
-    this.reappearAtTs = this.popStartTs + 420 + Math.random() * 220;
+    // Quick pop like real bubble: immediate burst, quick reappear
+    this.reappearAtTs = this.popStartTs + 200 + Math.random() * 100;
 
-    // Visual explosion particles and shockwave
-    this.createExplosion();
+    // Delay particle burst until shrink phase begins (at 40% of pop animation)
+    setTimeout(() => {
+      if (this.popActive) {
+        this.createBubbleBurst();
+      }
+    }, 28); // 40% of 70ms pop duration
   }
 
   private emitReappearShine() {
     if (this.reappearShineEmitted) return;
     this.reappearShineEmitted = true;
     const el = this.el.nativeElement;
+    
+    // Subtle surface tension shimmer as bubble forms
     const shine = document.createElement('div');
     Object.assign(shine.style, {
       position: 'absolute',
@@ -687,24 +759,21 @@ export class BubbleDirective implements OnInit, OnDestroy {
       borderRadius: 'inherit',
       overflow: 'hidden',
       pointerEvents: 'none',
-      background:
-        'linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 44%, rgba(255,255,255,0.75) 50%, rgba(255,255,255,0) 56%, rgba(255,255,255,0) 100%)',
-      transform: 'translateX(-160%) skewX(-14deg)',
-      opacity: '0.85',
+      background: 'radial-gradient(circle at 35% 25%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 30%, rgba(255,255,255,0) 60%)',
+      opacity: '0',
     } as CSSStyleDeclaration);
     el.appendChild(shine);
-    const anim = shine.animate(
-      [
-        { transform: 'translateX(-160%) skewX(-14deg)', opacity: 0.85 },
-        { transform: 'translateX(160%) skewX(-14deg)', opacity: 0.0 },
-      ],
-      {
-        duration: 420,
-        easing: 'cubic-bezier(0.15, 0.7, 0.2, 1)',
-        fill: 'forwards',
-      },
-    );
-    anim.onfinish = () => shine.remove();
+    
+    shine.animate([
+      { opacity: 0 },
+      { opacity: 0.8 },
+      { opacity: 0.3 },
+      { opacity: 0 }
+    ], {
+      duration: 200,
+      easing: 'ease-out',
+      fill: 'forwards',
+    }).onfinish = () => shine.remove();
   }
 
   private emitInflationFX() {
@@ -716,7 +785,7 @@ export class BubbleDirective implements OnInit, OnDestroy {
     const w = rect.width || 48;
     const h = rect.height || 48;
 
-    // Rim halo (subtle bright edge that settles)
+    // Subtle surface tension ring - like real bubble forming
     const rim = document.createElement('div');
     Object.assign(rim.style, {
       position: 'absolute',
@@ -726,111 +795,68 @@ export class BubbleDirective implements OnInit, OnDestroy {
       height: '100%',
       borderRadius: 'inherit',
       pointerEvents: 'none',
-      background:
-        'radial-gradient(65% 65% at 50% 50%, rgba(255,255,255,0) 55%, rgba(190,240,255,0.8) 82%, rgba(190,240,255,0) 100%)',
-      opacity: '0.0',
-      transform: 'scale(0.8)',
+      background: 'radial-gradient(circle, rgba(255,255,255,0) 70%, rgba(255,255,255,0.6) 85%, rgba(255,255,255,0) 100%)',
+      opacity: '0',
+      transform: 'scale(0.9)',
     } as CSSStyleDeclaration);
     el.appendChild(rim);
-    const rimAnim = rim.animate(
-      [
-        { transform: 'scale(0.8)', opacity: 0.0 },
-        { transform: 'scale(1.05)', opacity: 0.85 },
-        { transform: 'scale(1.0)', opacity: 0.2 },
-        { transform: 'scale(1.0)', opacity: 0.0 },
-      ],
-      {
-        duration: 520,
-        easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)',
-        fill: 'forwards',
-      },
-    );
-    rimAnim.onfinish = () => rim.remove();
+    
+    rim.animate([
+      { transform: 'scale(0.9)', opacity: 0 },
+      { transform: 'scale(1.02)', opacity: 0.7 },
+      { transform: 'scale(1.0)', opacity: 0 }
+    ], {
+      duration: 180,
+      easing: 'ease-out',
+      fill: 'forwards',
+    }).onfinish = () => rim.remove();
 
-    // Inner pulse ring
-    const inner = document.createElement('div');
-    const size = Math.min(w, h) * 0.48;
-    Object.assign(inner.style, {
-      position: 'absolute',
-      left: `calc(50% - ${size / 2}px)`,
-      top: `calc(50% - ${size / 2}px)`,
-      width: `${size}px`,
-      height: `${size}px`,
-      borderRadius: '999px',
-      border: '2px solid rgba(180, 235, 255, 0.8)',
-      boxShadow: '0 0 10px rgba(160, 230, 255, 0.6)',
-      pointerEvents: 'none',
-      transform: 'scale(0.6)',
-      opacity: '0.0',
-    } as CSSStyleDeclaration);
-    el.appendChild(inner);
-    const innerAnim = inner.animate(
-      [
-        { transform: 'scale(0.6)', opacity: 0.0 },
-        { transform: 'scale(1.2)', opacity: 0.9 },
-        { transform: 'scale(1.8)', opacity: 0.0 },
-      ],
-      {
-        duration: 360,
-        easing: 'cubic-bezier(0.2, 0.6, 0.2, 1)',
-        fill: 'forwards',
-      },
-    );
-    innerAnim.onfinish = () => inner.remove();
-
-    // Ingress droplets (merge into the bubble center)
-    const ingressCount = 5 + Math.floor(Math.random() * 4);
-    for (let i = 0; i < ingressCount; i++) {
-      const drop = document.createElement('div');
-      const sz = 2 + Math.random() * 3;
+    // Tiny formation sparkles - minimal and realistic
+    const sparkleCount = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < sparkleCount; i++) {
+      const sparkle = document.createElement('div');
+      const size = 1 + Math.random() * 1.5;
       const angle = Math.random() * Math.PI * 2;
-      const radius = (Math.min(w, h) / 2) * (0.8 + Math.random() * 0.2);
-      const startX = Math.cos(angle) * radius;
-      const startY = Math.sin(angle) * radius;
-      Object.assign(drop.style, {
+      const radius = Math.min(w, h) * 0.3;
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
+      
+      Object.assign(sparkle.style, {
         position: 'absolute',
         left: '50%',
         top: '50%',
-        width: `${sz}px`,
-        height: `${sz}px`,
-        marginLeft: `${-sz / 2}px`,
-        marginTop: `${-sz / 2}px`,
-        borderRadius: '999px',
-        background:
-          'radial-gradient(60% 60% at 50% 50%, rgba(180, 240, 255, 0.95), rgba(255,255,255,0) 70%)',
+        width: `${size}px`,
+        height: `${size}px`,
+        marginLeft: `${-size / 2}px`,
+        marginTop: `${-size / 2}px`,
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,255,255,0.3))',
+        boxShadow: '0 0 3px rgba(255,255,255,0.8)',
         pointerEvents: 'none',
-        transform: `translate3d(${startX}px, ${startY}px, 0)`,
-        opacity: '0.9',
+        transform: `translate3d(${x}px, ${y}px, 0) scale(0)`,
+        opacity: '0',
       } as CSSStyleDeclaration);
-      el.appendChild(drop);
-      const driftX = (Math.random() - 0.5) * 6;
-      const driftY = (Math.random() - 0.5) * 6;
-      const anim = drop.animate(
-        [
-          {
-            transform: `translate3d(${startX}px, ${startY}px, 0)`,
-            opacity: 0.9,
-          },
-          {
-            transform: `translate3d(${driftX}px, ${driftY}px, 0)`,
-            opacity: 0.0,
-          },
-        ],
-        {
-          duration: 300 + Math.random() * 180,
-          easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)',
-          fill: 'forwards',
-        },
-      );
-      anim.onfinish = () => drop.remove();
+      
+      el.appendChild(sparkle);
+      
+      sparkle.animate([
+        { transform: `translate3d(${x}px, ${y}px, 0) scale(0)`, opacity: 0 },
+        { transform: `translate3d(${x}px, ${y}px, 0) scale(1)`, opacity: 0.9 },
+        { transform: `translate3d(${x}px, ${y}px, 0) scale(0)`, opacity: 0 }
+      ], {
+        duration: 120 + Math.random() * 80,
+        easing: 'ease-out',
+        fill: 'forwards',
+      }).onfinish = () => sparkle.remove();
     }
   }
 
-  private createExplosion() {
+  private createBubbleBurst() {
     const el = this.el.nativeElement;
     const rect = el.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
+    const bubbleSize = Math.max(rect.width, rect.height);
 
     const wrapper = document.createElement('div');
     wrapper.style.position = 'fixed';
@@ -842,214 +868,125 @@ export class BubbleDirective implements OnInit, OnDestroy {
     wrapper.style.zIndex = '9999';
     document.body.appendChild(wrapper);
 
-    // Bright core flash
+    // Membrane fragments - fewer but higher quality
+    const fragmentCount = 4 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < fragmentCount; i++) {
+      const fragment = document.createElement('div');
+      const angle = (i / fragmentCount) * Math.PI * 2 + (Math.random() - 0.5) * 1.2;
+      const width = 12 + Math.random() * 16; // larger, more visible fragments
+      const height = 3 + Math.random() * 4;
+      const distance = bubbleSize * 0.5 + Math.random() * bubbleSize * 0.3;
+      const dx = Math.cos(angle) * distance;
+      const dy = Math.sin(angle) * distance;
+      const rotation = angle * (180 / Math.PI) + (Math.random() - 0.5) * 45;
+      
+      Object.assign(fragment.style, {
+        position: 'absolute',
+        left: `${cx - width / 2}px`,
+        top: `${cy - height / 2}px`,
+        width: `${width}px`,
+        height: `${height}px`,
+        borderRadius: '3px',
+        background: 'linear-gradient(90deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0.95) 100%)',
+        boxShadow: '0 0 4px rgba(255,255,255,0.9), inset 0 0 3px rgba(0,0,0,0.15)',
+        transform: `rotate(${rotation}deg) scale(1)`,
+        opacity: '0.9',
+      } as CSSStyleDeclaration);
+      
+      wrapper.appendChild(fragment);
+      
+      // Fragments fly out and fade quickly like real bubble skin
+      fragment.animate([
+        { 
+          transform: `rotate(${rotation}deg) scale(1)`, 
+          opacity: 0.95 
+        },
+        { 
+          transform: `translate(${dx * 0.6}px, ${dy * 0.6}px) rotate(${rotation + (Math.random() - 0.5) * 180}deg) scale(0.8)`, 
+          opacity: 0.6 
+        },
+        { 
+          transform: `translate(${dx}px, ${dy}px) rotate(${rotation + (Math.random() - 0.5) * 360}deg) scale(0.3)`, 
+          opacity: 0 
+        }
+      ], {
+        duration: 180 + Math.random() * 120,
+        easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+        fill: 'forwards'
+      }).onfinish = () => fragment.remove();
+    }
+
+    // Tiny water droplets - fewer, more realistic
+    const dropletCount = 6 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < dropletCount; i++) {
+      const droplet = document.createElement('div');
+      const size = 1.5 + Math.random() * 2.5;
+      const angle = Math.random() * Math.PI * 2;
+      const distance = bubbleSize * 0.3 + Math.random() * bubbleSize * 0.5;
+      const dx = Math.cos(angle) * distance;
+      const dy = Math.sin(angle) * distance + Math.random() * 10; // slight downward bias
+      
+      Object.assign(droplet.style, {
+        position: 'absolute',
+        left: `${cx - size / 2}px`,
+        top: `${cy - size / 2}px`,
+        width: `${size}px`,
+        height: `${size}px`,
+        borderRadius: '50%',
+        background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.9), rgba(200,230,255,0.8) 60%, rgba(150,200,255,0.6))',
+        boxShadow: '0 0 2px rgba(255,255,255,0.5)',
+        transform: 'scale(1)',
+        opacity: '0.9',
+      } as CSSStyleDeclaration);
+      
+      wrapper.appendChild(droplet);
+      
+      // Droplets arc naturally with gravity
+      droplet.animate([
+        { 
+          transform: 'scale(1)', 
+          opacity: 0.9 
+        },
+        { 
+          transform: `translate(${dx * 0.7}px, ${dy * 0.7 + 5}px) scale(0.9)`, 
+          opacity: 0.7 
+        },
+        { 
+          transform: `translate(${dx}px, ${dy + 15}px) scale(0.6)`, 
+          opacity: 0 
+        }
+      ], {
+        duration: 200 + Math.random() * 150,
+        easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+        fill: 'forwards'
+      }).onfinish = () => droplet.remove();
+    }
+
+    // Single subtle "pop" flash - very brief like real bubble
     const flash = document.createElement('div');
-    const flashSize = Math.max(rect.width, rect.height) * 0.7;
     Object.assign(flash.style, {
       position: 'absolute',
-      left: `${cx - flashSize / 2}px`,
-      top: `${cy - flashSize / 2}px`,
-      width: `${flashSize}px`,
-      height: `${flashSize}px`,
-      borderRadius: '999px',
-      background:
-        'radial-gradient(60% 60% at 50% 50%, rgba(230, 250, 255, 0.9), rgba(230, 250, 255, 0.4) 45%, rgba(230, 250, 255, 0) 70%)',
-      filter: 'blur(0.5px)',
-      opacity: '0.9',
-      transform: 'scale(0.6)',
-    } as CSSStyleDeclaration);
-    wrapper.appendChild(flash);
-    flash.animate(
-      [
-        { transform: 'scale(0.6)', opacity: 0.9 },
-        { transform: 'scale(1.6)', opacity: 0 },
-      ],
-      {
-        duration: 120,
-        easing: 'cubic-bezier(0.2, 0.6, 0.2, 1)',
-        fill: 'forwards',
-      },
-    );
-
-    // Shockwave rings
-    const baseSize = Math.max(rect.width, rect.height) * 1.0;
-    const ring1 = document.createElement('div');
-    Object.assign(ring1.style, {
-      position: 'absolute',
-      left: `${cx - baseSize / 2}px`,
-      top: `${cy - baseSize / 2}px`,
-      width: `${baseSize}px`,
-      height: `${baseSize}px`,
-      borderRadius: '999px',
-      border: '2px solid rgba(140, 225, 255, 0.8)',
-      boxShadow: '0 0 12px rgba(140, 225, 255, 0.6)',
-      transform: 'scale(1)',
-      opacity: '0.9',
-    } as CSSStyleDeclaration);
-    wrapper.appendChild(ring1);
-    ring1.animate(
-      [
-        { transform: 'scale(1)', opacity: 0.9 },
-        { transform: 'scale(2.2)', opacity: 0 },
-      ],
-      {
-        duration: 180,
-        easing: 'cubic-bezier(0.25, 0.6, 0.2, 1)',
-        fill: 'forwards',
-      },
-    );
-
-    const ring2 = document.createElement('div');
-    Object.assign(ring2.style, {
-      position: 'absolute',
-      left: `${cx - baseSize / 2}px`,
-      top: `${cy - baseSize / 2}px`,
-      width: `${baseSize}px`,
-      height: `${baseSize}px`,
-      borderRadius: '999px',
-      border: '1px solid rgba(160, 235, 255, 0.6)',
-      transform: 'scale(1)',
+      left: `${cx - bubbleSize / 2}px`,
+      top: `${cy - bubbleSize / 2}px`,
+      width: `${bubbleSize}px`,
+      height: `${bubbleSize}px`,
+      borderRadius: '50%',
+      background: 'radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.3) 40%, rgba(255,255,255,0) 70%)',
+      transform: 'scale(0.8)',
       opacity: '0.7',
-      filter: 'blur(0.3px)',
     } as CSSStyleDeclaration);
-    wrapper.appendChild(ring2);
-    ring2.animate(
-      [
-        { transform: 'scale(1)', opacity: 0.7 },
-        { transform: 'scale(3.0)', opacity: 0 },
-      ],
-      {
-        duration: 300,
-        easing: 'cubic-bezier(0.2, 0.6, 0.2, 1)',
-        fill: 'forwards',
-      },
-    );
+    
+    wrapper.appendChild(flash);
+    flash.animate([
+      { transform: 'scale(0.8)', opacity: 0.7 },
+      { transform: 'scale(1.1)', opacity: 0 }
+    ], {
+      duration: 80,
+      easing: 'ease-out',
+      fill: 'forwards'
+    }).onfinish = () => flash.remove();
 
-    // Mist plumes
-    for (let i = 0; i < 2; i++) {
-      const mist = document.createElement('div');
-      const size = baseSize * (0.7 + Math.random() * 0.4);
-      Object.assign(mist.style, {
-        position: 'absolute',
-        left: `${cx - size / 2}px`,
-        top: `${cy - size / 2}px`,
-        width: `${size}px`,
-        height: `${size}px`,
-        borderRadius: '999px',
-        background:
-          'radial-gradient(60% 60% at 50% 50%, rgba(160, 240, 255, 0.35), rgba(160, 240, 255, 0) 70%)',
-        filter: 'blur(6px)',
-        opacity: '0.45',
-        transform: 'scale(0.8)',
-      } as CSSStyleDeclaration);
-      wrapper.appendChild(mist);
-      mist.animate(
-        [
-          { transform: 'scale(0.8)', opacity: 0.45 },
-          { transform: 'scale(1.6)', opacity: 0 },
-        ],
-        {
-          duration: 320 + Math.random() * 120,
-          easing: 'cubic-bezier(0.2, 0.6, 0.2, 1)',
-          fill: 'forwards',
-        },
-      );
-    }
-
-    // Water droplets (round)
-    const dropletCount = 18 + Math.floor(Math.random() * 10);
-    const dropletPalette = [
-      'rgba(150, 230, 255, 0.95)',
-      'rgba(120, 210, 255, 0.95)',
-      'rgba(90, 200, 240, 0.95)',
-      'rgba(170, 245, 255, 0.95)',
-    ];
-    for (let i = 0; i < dropletCount; i++) {
-      const p = document.createElement('div');
-      const size = 3 + Math.random() * 4.5;
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 50 + Math.random() * 110;
-      const dx = Math.cos(angle) * distance;
-      const dy = Math.sin(angle) * distance + (8 + Math.random() * 18);
-      const color =
-        dropletPalette[Math.floor(Math.random() * dropletPalette.length)];
-      Object.assign(p.style, {
-        position: 'absolute',
-        left: `${cx - size / 2}px`,
-        top: `${cy - size / 2}px`,
-        width: `${size}px`,
-        height: `${size}px`,
-        borderRadius: '999px',
-        background: `radial-gradient(60% 60% at 50% 50%, ${color}, rgba(255,255,255,0) 70%)`,
-        boxShadow: '0 1px 4px rgba(0, 60, 120, 0.18)',
-        transform: 'translate3d(0,0,0) scale(0.9)',
-        opacity: '0.98',
-      } as CSSStyleDeclaration);
-      wrapper.appendChild(p);
-      const travel = p.animate(
-        [
-          { transform: 'translate3d(0,0,0) scale(0.9)', opacity: 0.98 },
-          {
-            transform: `translate3d(${dx * 0.7}px, ${dy * 0.7}px, 0) scale(0.75)`,
-            opacity: 0.7,
-          },
-          {
-            transform: `translate3d(${dx}px, ${dy + 12}px, 0) scale(0.6)`,
-            opacity: 0,
-          },
-        ],
-        {
-          duration: 280 + Math.random() * 240,
-          easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)',
-          fill: 'forwards',
-        },
-      );
-      travel.onfinish = () => p.remove();
-    }
-
-    // Membrane shards (streaks)
-    const streakCount = 10 + Math.floor(Math.random() * 8);
-    for (let i = 0; i < streakCount; i++) {
-      const sEl = document.createElement('div');
-      const length = 10 + Math.random() * 18;
-      const thickness = 1 + Math.random() * 2;
-      const angle = Math.random() * Math.PI * 2;
-      const dx = Math.cos(angle) * (60 + Math.random() * 120);
-      const dy = Math.sin(angle) * (60 + Math.random() * 120);
-      const deg = (angle * 180) / Math.PI;
-      Object.assign(sEl.style, {
-        position: 'absolute',
-        left: `${cx - thickness / 2}px`,
-        top: `${cy - thickness / 2}px`,
-        width: `${length}px`,
-        height: `${thickness}px`,
-        borderRadius: '2px',
-        background:
-          'linear-gradient(90deg, rgba(200, 245, 255, 0.0) 0%, rgba(200, 245, 255, 0.8) 40%, rgba(200, 245, 255, 0.0) 100%)',
-        transformOrigin: '0 50%',
-        transform: `rotate(${deg}deg) translate3d(0,0,0)`,
-        opacity: '0.95',
-        filter: 'blur(0.2px)',
-      } as CSSStyleDeclaration);
-      wrapper.appendChild(sEl);
-      const anim = sEl.animate(
-        [
-          { transform: `rotate(${deg}deg) translate3d(0,0,0)`, opacity: 0.95 },
-          {
-            transform: `rotate(${deg}deg) translate3d(${dx}px, ${dy}px, 0)`,
-            opacity: 0,
-          },
-        ],
-        {
-          duration: 260 + Math.random() * 240,
-          easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)',
-          fill: 'forwards',
-        },
-      );
-      anim.onfinish = () => sEl.remove();
-    }
-
-    // Cleanup overlay
-    setTimeout(() => wrapper.remove(), 1000);
+    // Clean up wrapper quickly
+    setTimeout(() => wrapper.remove(), 500);
   }
 }
