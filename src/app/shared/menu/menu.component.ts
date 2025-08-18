@@ -14,7 +14,7 @@ export class MenuComponent {
 
   readonly isOpen = signal(false);
   // Larger nav bubbles
-  readonly sizes = [84, 96, 108];
+  readonly sizes = [84, 96, 108, 92];
 
   toggleMenu(): void {
     const wasOpen = this.isOpen();
