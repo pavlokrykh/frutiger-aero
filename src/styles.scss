@@ -1,9 +1,14 @@
 /* You can add global styles to this file, and also import other style files */
+
+/* Import fonts configuration */
+@use './assets/styles/fonts';
+
 @use './assets/styles/bubble.scss';
 
 html, body, app-root {
   height: 100%;
 }
+
 body {
   margin: 0;
   background-image: url('./assets/images/bg.jpg');
@@ -11,6 +16,7 @@ body {
   background-position: center center;
   background-size: cover;
   background-attachment: fixed;
+  /* Font styling is now handled by the fonts partial */
 }
 
 button {

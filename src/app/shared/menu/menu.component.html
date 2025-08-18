@@ -15,7 +15,7 @@
       [bubbleFloating]="true"
       [bubbleExpanded]="isOpen()"
       [bubbleIndex]="0"
-      [bubbleCount]="3"
+      [bubbleCount]="4"
       type="button"
       routerLink="/home"
       routerLinkActive="active"
@@ -34,7 +34,7 @@
       [bubbleFloating]="true"
       [bubbleExpanded]="isOpen()"
       [bubbleIndex]="1"
-      [bubbleCount]="3"
+      [bubbleCount]="4"
       type="button"
       routerLink="/about"
       routerLinkActive="active"
@@ -53,7 +53,7 @@
       [bubbleFloating]="true"
       [bubbleExpanded]="isOpen()"
       [bubbleIndex]="2"
-      [bubbleCount]="3"
+      [bubbleCount]="4"
       type="button"
       routerLink="/contact"
       routerLinkActive="active"
@@ -67,6 +67,26 @@
       [bubbleWobbleSpeed]="0.9"
     >
       Contact
+    </button>
+    <button
+      bubble
+      [bubbleFloating]="true"
+      [bubbleExpanded]="isOpen()"
+      [bubbleIndex]="3"
+      [bubbleCount]="4"
+      type="button"
+      routerLink="/font-demo"
+      routerLinkActive="active"
+      class="font-demo-button"
+      [style.--bubble-size.px]="sizes[3]"
+      [bubbleGlassStrength]="88"
+      [bubbleGlassDepth]="19"
+      [bubbleChromaticAberration]="1.15"
+      [bubbleGlassBlur]="0.95"
+      [bubbleWobbleIntensity]="0.75"
+      [bubbleWobbleSpeed]="0.82"
+    >
+      Font Demo
     </button>
   </div>
 </div>
