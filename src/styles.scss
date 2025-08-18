@@ -17,6 +17,9 @@ body {
   background-size: cover;
   background-attachment: fixed;
   /* Font styling is now handled by the fonts partial */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-weight: 400;
+  line-height: 1.6;
 }
 
 button {

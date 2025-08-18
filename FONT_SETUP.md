@@ -1,19 +1,36 @@
-# Aeonik Font Setup Guide
+# Inter Font Setup Guide
 
-This guide explains how to use the Aeonik font in your Angular application.
+This guide explains how to use the Inter font in your Angular application.
+
+## About Inter Font
+
+**Inter** is a variable font family carefully crafted for computer screens. It features:
+- 9 font weights (100-900)
+- Optimized for screen readability
+- Tall x-height for better legibility
+- OpenType features for professional typography
+- **Free and open source** (unlike Aeonik which is commercial)
+
+## Why Inter Instead of Aeonik?
+
+Aeonik is a commercial font family that requires licensing. Inter provides a similar modern, clean aesthetic and is:
+- ✅ Free to use
+- ✅ Optimized for screens
+- ✅ Professional quality
+- ✅ Legally safe for commercial projects
 
 ## What's Been Added
 
 1. **Font Configuration File** (`src/assets/styles/_fonts.scss`)
    - Font family variables
-   - Font weight variables (300, 400, 500, 600, 700)
-   - Font size variables (xs to 4xl)
+   - Font weight variables (100-900)
+   - Font size variables (xs to 6xl)
    - Line height variables
    - Utility classes and mixins
 
 2. **Updated Main Styles** (`src/styles.scss`)
    - Imports the fonts configuration
-   - Applies Aeonik as the default font family
+   - Applies Inter as the default font family
 
 3. **Demo Component** (`src/app/font-demo/font-demo.component.ts`)
    - Showcases all font weights, sizes, and line heights
@@ -21,148 +38,83 @@ This guide explains how to use the Aeonik font in your Angular application.
 
 ## Current Setup
 
-The application currently uses **Inter** as a fallback font since Aeonik is a commercial font. If you have the commercial Aeonik font files, you can replace Inter with Aeonik.
+The application now uses **Inter** as the primary font, loaded from Google Fonts. This provides:
+- Excellent readability on all devices
+- Professional appearance
+- Consistent typography system
+- No licensing concerns
 
-## How to Use
+## Usage Examples
 
-### 1. Basic Font Usage
-
-The Aeonik font is automatically applied to all text in your application. You can override it using utility classes:
-
-```html
-<!-- Font weights -->
-<p class="font-light">Light text</p>
-<p class="font-regular">Regular text</p>
-<p class="font-medium">Medium text</p>
-<p class="font-semibold">Semibold text</p>
-<p class="font-bold">Bold text</p>
-
-<!-- Font sizes -->
-<p class="text-xs">Extra small</p>
-<p class="text-sm">Small</p>
-<p class="text-base">Base size</p>
-<p class="text-lg">Large</p>
-<p class="text-xl">Extra large</p>
-<p class="text-2xl">2XL</p>
-<p class="text-3xl">3XL</p>
-<p class="text-4xl">4XL</p>
-
-<!-- Line heights -->
-<p class="leading-tight">Tight spacing</p>
-<p class="leading-normal">Normal spacing</p>
-<p class="leading-relaxed">Relaxed spacing</p>
-```
-
-### 2. Using SCSS Mixins
-
-In your component styles, you can use the provided mixins:
-
+### Font Weights
 ```scss
-.my-component {
-  @include font-aeonik($font-weight-medium, $font-size-lg, $line-height-normal);
-}
-
-.heading {
-  @include font-heading;
-}
-
-.body-text {
-  @include font-body;
-}
-
-.caption {
-  @include font-caption;
-}
+.font-thin { font-weight: 100; }      // Ultra light
+.font-extralight { font-weight: 200; } // Very light
+.font-light { font-weight: 300; }      // Light
+.font-regular { font-weight: 400; }    // Regular
+.font-medium { font-weight: 500; }     // Medium
+.font-semibold { font-weight: 600; }   // Semibold
+.font-bold { font-weight: 700; }       // Bold
+.font-extrabold { font-weight: 800; }  // Extra bold
+.font-black { font-weight: 900; }      // Black
 ```
 
-### 3. Using CSS Variables
-
-You can also use CSS custom properties:
-
+### Font Sizes
 ```scss
-.my-text {
-  font-family: var(--font-aeonik);
-  font-weight: var(--font-weight-medium);
-}
+.text-xs { font-size: 0.75rem; }    // 12px
+.text-sm { font-size: 0.875rem; }   // 14px
+.text-base { font-size: 1rem; }     // 16px
+.text-lg { font-size: 1.125rem; }   // 18px
+.text-xl { font-size: 1.25rem; }    // 20px
+.text-2xl { font-size: 1.5rem; }    // 24px
+.text-3xl { font-size: 1.875rem; }  // 30px
+.text-4xl { font-size: 2.25rem; }   // 36px
+.text-5xl { font-size: 3rem; }      // 48px
+.text-6xl { font-size: 3.75rem; }   // 60px
 ```
 
-## Adding Commercial Aeonik Font
-
-If you have the commercial Aeonik font files:
-
-1. **Place font files** in `src/assets/fonts/` directory
-2. **Update the fonts partial** (`src/assets/styles/_fonts.scss`):
-
+### Line Heights
 ```scss
-// Replace the Inter import with Aeonik font-face declarations
-@font-face {
-  font-family: 'Aeonik';
-  src: url('../fonts/Aeonik-Regular.woff2') format('woff2'),
-       url('../fonts/Aeonik-Regular.woff') format('woff');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Aeonik';
-  src: url('../fonts/Aeonik-Medium.woff2') format('woff2'),
-       url('../fonts/Aeonik-Medium.woff') format('woff');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-// Add more weights as needed...
-
-// Update the font family variable
-$font-aeonik: 'Aeonik', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+.leading-tight { line-height: 1.25; }     // Compact
+.leading-snug { line-height: 1.375; }     // Balanced
+.leading-normal { line-height: 1.5; }     // Standard
+.leading-relaxed { line-height: 1.625; }  // Comfortable
+.leading-loose { line-height: 2; }        // Spacious
 ```
 
-## Font Weights Available
+### Typography Mixins
+```scss
+@include heading-1;      // Main page titles
+@include heading-2;      // Section titles
+@include heading-3;      // Subsection titles
+@include body-text;      // Standard body text
+@include body-text-large; // Enhanced body text
+@include caption;         // Caption text
+```
 
-- **300 (Light)**: Subtle text, captions
-- **400 (Regular)**: Default body text
-- **500 (Medium)**: Emphasis, buttons
-- **600 (Semibold)**: Strong emphasis, subheadings
-- **700 (Bold)**: Headings, highlights
+## Viewing the Demo
 
-## Font Sizes Available
+Navigate to `/font-demo` in your application to see all font weights, sizes, and examples in action.
 
-- **xs**: 12px - Captions, fine print
-- **sm**: 14px - Secondary text
-- **base**: 16px - Default body text
-- **lg**: 18px - Enhanced readability
-- **xl**: 20px - Subheadings
-- **2xl**: 24px - Section headings
-- **3xl**: 30px - Page titles
-- **4xl**: 36px - Hero text
+## If You Want to Use Aeonik Later
 
-## Best Practices
+If you obtain a commercial license for Aeonik font:
 
-1. **Use consistent font weights** throughout your application
-2. **Limit font sizes** to maintain hierarchy
-3. **Test readability** at different screen sizes
-4. **Use appropriate line heights** for content length
-5. **Maintain contrast ratios** for accessibility
+1. Download the font files (.woff2, .woff, .ttf)
+2. Place them in `src/assets/fonts/`
+3. Update `_fonts.scss` to use `@font-face` declarations
+4. Replace `$font-primary` with your Aeonik font family
 
-## Testing the Font
+## Browser Support
 
-To see the font in action, you can:
+Inter font supports:
+- ✅ Modern browsers (Chrome, Firefox, Safari, Edge)
+- ✅ Variable font support for advanced features
+- ✅ Fallback to system fonts for older browsers
 
-1. **Run the application**: `ng serve`
-2. **Navigate to the demo component** (if added to routing)
-3. **Inspect elements** in browser dev tools to see applied fonts
+## Performance
 
-## Troubleshooting
-
-- **Font not loading**: Check if the Google Fonts URL is accessible
-- **Font not applying**: Ensure the fonts partial is imported in `styles.scss`
-- **Build errors**: Verify SCSS syntax and file paths
-
-## Next Steps
-
-1. **Customize font sizes** and weights as needed
-2. **Add more font variants** (italic, condensed, etc.)
-3. **Create component-specific font styles**
-4. **Implement responsive typography** using media queries
+- Font files are loaded from Google Fonts CDN
+- Optimized for fast loading
+- Includes only the weights you need
+- Automatic font-display: swap for better performance
